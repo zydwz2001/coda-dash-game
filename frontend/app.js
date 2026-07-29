@@ -9,6 +9,8 @@
     backendUrl: "coda.backendUrl",
   };
   const DASH = "-";
+  const PUBLIC_BACKEND_URL =
+    "https://walked-struct-confident-excerpt.trycloudflare.com";
   const AVATARS = Array.from(
     { length: 8 },
     (_, index) => `avatar-${String(index + 1).padStart(2, "0")}`,
@@ -59,9 +61,12 @@
     return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
   }
 
+  const defaultBackendUrl = window.location.hostname.endsWith("github.io")
+    ? PUBLIC_BACKEND_URL
+    : "http://localhost:3000";
   const initialBackendUrl =
     query.get("server") ||
-    storage.get(STORAGE_KEYS.backendUrl, "http://localhost:3000");
+    storage.get(STORAGE_KEYS.backendUrl, defaultBackendUrl);
   const initialNickname =
     storage.get(STORAGE_KEYS.nickname) ||
     randomNames[Math.floor(Math.random() * randomNames.length)];
@@ -1327,7 +1332,11 @@
     } else if (action === "copy-room") {
       const url = new URL(window.location.href);
       url.searchParams.set("room", state.roomCode);
-      url.searchParams.set("server", state.backendUrl);
+      if (state.backendUrl === PUBLIC_BACKEND_URL) {
+        url.searchParams.delete("server");
+      } else {
+        url.searchParams.set("server", state.backendUrl);
+      }
       try {
         await navigator.clipboard.writeText(url.toString());
         showToast("邀请链接已复制。", "success");
