@@ -248,6 +248,146 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
   await secondContext.close();
 });
 
+test("three-player phone layout shows both opponents without horizontal clipping", async ({
+  browser,
+}) => {
+  const contexts = await Promise.all(
+    Array.from({ length: 3 }, () =>
+      browser.newContext({ viewport: { width: 390, height: 844 } }),
+    ),
+  );
+  const [host, second, third] = await Promise.all(
+    contexts.map((context) => context.newPage()),
+  );
+  const backendQuery = encodeURIComponent("http://127.0.0.1:3100");
+
+  try {
+    await host.goto(`/?server=${backendQuery}`);
+    await host.locator("#nickname").fill("房主甲");
+    await host.locator('[data-avatar-id="avatar-03"]').click();
+    await expect(
+      host.getByRole("button", { name: "创建新房间" }),
+    ).toBeEnabled();
+    await host.getByRole("button", { name: "创建新房间" }).click();
+    await host.waitForURL(/room=\d{4}/);
+    const roomCode = new URL(host.url()).searchParams.get("room");
+
+    for (const [page, nickname, avatarId] of [
+      [second, "玩家乙", "avatar-04"],
+      [third, "玩家丙", "avatar-05"],
+    ]) {
+      await page.goto(
+        `/?server=${backendQuery}&room=${encodeURIComponent(roomCode)}`,
+      );
+      await page.locator("#nickname").fill(nickname);
+      await page.locator(`[data-avatar-id="${avatarId}"]`).click();
+      await expect(page.getByRole("button", { name: "加入" })).toBeEnabled();
+      await page.getByRole("button", { name: "加入" }).click();
+    }
+
+    await expect(host.getByText("玩家乙", { exact: true })).toBeVisible();
+    await expect(host.getByText("玩家丙", { exact: true })).toBeVisible();
+    for (const page of [host, second, third]) {
+      await page.getByRole("button", { name: "我准备好了" }).click();
+    }
+    await expect(
+      host.getByRole("button", { name: "开始游戏" }),
+    ).toBeEnabled();
+    await host.getByRole("button", { name: "开始游戏" }).click();
+    await expect(host.getByText("请摸一张牌", { exact: true })).toBeVisible({
+      timeout: 5_000,
+    });
+
+    await expect(host.locator(".opponent-zone")).toHaveCount(2);
+    const layout = await host.evaluate(() => {
+      const rect = (selector) => {
+        const box = document.querySelector(selector).getBoundingClientRect();
+        return {
+          left: box.left,
+          right: box.right,
+          top: box.top,
+          bottom: box.bottom,
+          width: box.width,
+        };
+      };
+      return {
+        viewportWidth: window.innerWidth,
+        pageWidth: document.documentElement.scrollWidth,
+        opponents: [...document.querySelectorAll(".opponent-zone")].map(
+          (element) => {
+            const box = element.getBoundingClientRect();
+            return {
+              left: box.left,
+              right: box.right,
+              top: box.top,
+              bottom: box.bottom,
+              width: box.width,
+            };
+          },
+        ),
+        turn: rect(".turn-control-panel"),
+        self: rect(".self-hand-panel"),
+      };
+    });
+    expect(layout.pageWidth).toBeLessThanOrEqual(layout.viewportWidth);
+    expect(layout.opponents).toHaveLength(2);
+    for (const opponent of layout.opponents) {
+      expect(opponent.left).toBeGreaterThanOrEqual(11);
+      expect(opponent.right).toBeLessThanOrEqual(layout.viewportWidth - 11);
+      expect(opponent.width).toBeGreaterThanOrEqual(360);
+    }
+    expect(layout.opponents[1].top).toBeGreaterThanOrEqual(
+      layout.opponents[0].bottom + 11,
+    );
+    for (const panel of [layout.turn, layout.self]) {
+      expect(panel.left).toBeGreaterThanOrEqual(11);
+      expect(panel.right).toBeLessThanOrEqual(layout.viewportWidth - 11);
+    }
+
+    mkdirSync("artifacts", { recursive: true });
+    await host.screenshot({
+      path: "artifacts/coda-three-player-mobile.png",
+      fullPage: true,
+    });
+
+    await host.getByRole("button", { name: /摸黑牌/ }).click();
+    await host.waitForFunction(
+      () =>
+        document.querySelector('[data-action="place-dash"]') ||
+        document.querySelector('[data-action="open-guess"]'),
+    );
+    const dashPlacement = host.locator('[data-action="place-dash"]');
+    if (await dashPlacement.count()) {
+      await dashPlacement.first().click();
+    }
+    await host.locator('[data-action="open-guess"]').first().click();
+    await expect(host.locator(".guess-option")).toHaveCount(13);
+    const modalLayout = await host
+      .locator('[aria-labelledby="guess-title"]')
+      .evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return {
+          left: box.left,
+          right: box.right,
+          top: box.top,
+          bottom: box.bottom,
+          viewportWidth: window.innerWidth,
+          viewportHeight: window.innerHeight,
+        };
+      });
+    expect(modalLayout.left).toBeGreaterThanOrEqual(0);
+    expect(modalLayout.right).toBeLessThanOrEqual(modalLayout.viewportWidth);
+    expect(modalLayout.top).toBeGreaterThanOrEqual(0);
+    expect(modalLayout.bottom).toBeLessThanOrEqual(modalLayout.viewportHeight);
+    await host.screenshot({
+      path: "artifacts/coda-three-player-guess-mobile.png",
+      fullPage: true,
+    });
+  } finally {
+    await Promise.all(contexts.map((context) => context.close()));
+  }
+});
+
 test("lobby stays usable at a phone viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const backendQuery = encodeURIComponent("http://127.0.0.1:3100");

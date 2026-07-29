@@ -435,8 +435,8 @@
 
   function renderShell(content) {
     return `
-      <div class="safe-bottom mx-auto flex min-h-[100dvh] w-full max-w-[1480px] flex-col px-3 sm:px-6 lg:px-8">
-        <main class="flex flex-1 flex-col py-4 sm:py-6">${content}</main>
+      <div class="safe-bottom mx-auto flex min-h-[100dvh] w-full min-w-0 max-w-[1480px] flex-col overflow-x-hidden px-3 sm:px-6 lg:px-8">
+        <main class="flex min-w-0 flex-1 flex-col py-4 sm:py-6">${content}</main>
       </div>
       ${state.showSettings ? renderSettingsModal() : ""}
       ${state.guessTarget ? renderGuessModal() : ""}
@@ -712,7 +712,7 @@
       )
       .join("");
     return `
-      <div class="player-hand-row scrollbar-subtle flex items-center overflow-x-auto px-2 py-3">
+      <div class="player-hand-row scrollbar-subtle flex w-full max-w-full items-center overflow-x-auto px-2 py-3">
         ${tiles}
       </div>
     `;
@@ -733,7 +733,7 @@
 
   function renderOpponentZone(player) {
     return `
-      <section class="opponent-zone min-w-full snap-center rounded-2xl border ${player.isCurrentTurn ? "border-lime-300/35 bg-lime-300/[0.045] shadow-lg shadow-lime-300/5" : "border-white/8 bg-white/[0.025]"} p-3 sm:rounded-3xl sm:p-4 md:min-w-0">
+      <section class="opponent-zone w-full min-w-0 overflow-hidden rounded-2xl border ${player.isCurrentTurn ? "border-lime-300/35 bg-lime-300/[0.045] shadow-lg shadow-lime-300/5" : "border-white/8 bg-white/[0.025]"} p-3 sm:rounded-3xl sm:p-4">
         <div class="mb-2 flex items-center justify-between gap-3">
           <div class="flex min-w-0 items-center gap-2.5">
             <img src="${avatarUrl(player.avatarId)}" alt="" class="h-9 w-9 shrink-0 rounded-xl border border-white/10 object-cover ${player.isEliminated ? "grayscale opacity-40" : ""}" />
@@ -1029,17 +1029,17 @@
           ? "md:grid-cols-2"
           : "md:grid-cols-1";
     return `
-      <div class="grid min-h-0 flex-1 gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div class="flex min-h-0 flex-col gap-3 sm:gap-4">
-          <div class="scrollbar-subtle -mx-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-3 pb-1 sm:-mx-6 sm:px-6 md:mx-0 md:grid md:px-0 ${opponentGridClass}">
+      <div class="grid w-full min-w-0 flex-1 gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div class="flex w-full min-w-0 flex-col gap-3 sm:gap-4">
+          <div class="grid w-full min-w-0 grid-cols-1 gap-3 ${opponentGridClass}">
             ${opponents.map(renderOpponentZone).join("")}
           </div>
 
-          <section class="panel table-surface sticky bottom-2 z-20 flex min-h-48 items-center justify-center border-amber-900/35 p-4 sm:static sm:min-h-64 sm:flex-1 sm:p-7">
+          <section class="turn-control-panel panel table-surface flex w-full min-w-0 min-h-44 items-center justify-center border-amber-900/35 p-4 sm:min-h-64 sm:flex-1 sm:p-7">
             ${renderTurnControl()}
           </section>
 
-          <section class="rounded-2xl border ${self?.isCurrentTurn ? "border-amber-500/45 bg-amber-950/15" : "border-stone-800 bg-stone-950/70"} p-3 sm:rounded-3xl sm:p-5">
+          <section class="self-hand-panel w-full min-w-0 overflow-hidden rounded-2xl border ${self?.isCurrentTurn ? "border-amber-500/45 bg-amber-950/15" : "border-stone-800 bg-stone-950/70"} p-3 sm:rounded-3xl sm:p-5">
             <div class="mb-2 flex flex-wrap items-center justify-between gap-3">
               <div class="flex min-w-0 items-center gap-2.5">
                 <img src="${avatarUrl(self?.avatarId || state.avatarId)}" alt="" class="h-9 w-9 shrink-0 rounded-xl border border-white/10 object-cover" />
@@ -1089,18 +1089,18 @@
       DASH,
     ];
     return `
-      <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-        <div class="panel safe-bottom w-full max-w-md rounded-b-none border-x-0 border-b-0 p-5 sm:rounded-3xl sm:border sm:p-6" role="dialog" aria-modal="true" aria-labelledby="guess-title">
-          <div class="mx-auto mb-4 h-1 w-10 rounded-full bg-stone-700 sm:hidden"></div>
+      <div class="fixed inset-0 z-50 flex items-end justify-center overflow-hidden bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+        <div class="panel safe-bottom max-h-[calc(100dvh-0.5rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-b-none border-x-0 border-b-0 p-4 sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl sm:border sm:p-6" role="dialog" aria-modal="true" aria-labelledby="guess-title">
+          <div class="mx-auto mb-3 h-1 w-10 rounded-full bg-stone-700 sm:hidden"></div>
           <div class="flex items-start justify-between gap-4">
             <div>
               <p class="eyebrow text-amber-400">猜牌</p>
-              <h2 id="guess-title" class="mt-2 text-2xl font-black">这张牌是什么？</h2>
-              <p class="mt-2 text-sm text-stone-500">目标：${escapeHtml(target?.nickname || "对手")}</p>
+              <h2 id="guess-title" class="mt-1.5 text-xl font-black sm:mt-2 sm:text-2xl">这张牌是什么？</h2>
+              <p class="mt-1.5 text-xs text-stone-500 sm:mt-2 sm:text-sm">目标：${escapeHtml(target?.nickname || "对手")}</p>
             </div>
-            <button type="button" data-action="close-guess" class="h-10 w-10 rounded-xl bg-stone-800 text-xl text-stone-400 hover:bg-stone-700 hover:text-white">×</button>
+            <button type="button" data-action="close-guess" class="h-9 w-9 shrink-0 rounded-xl bg-stone-800 text-lg text-stone-400 hover:bg-stone-700 hover:text-white sm:h-10 sm:w-10 sm:text-xl">×</button>
           </div>
-          <div class="mt-5 grid grid-cols-5 gap-2 sm:mt-6">
+          <div class="mt-4 grid grid-cols-5 gap-1.5 sm:mt-6 sm:gap-2">
             ${guessValues
               .map(
                 (value) => `
@@ -1109,7 +1109,7 @@
                     data-action="submit-guess"
                     data-value="${value}"
                     aria-label="${value === DASH ? "猜百搭牌" : `猜数字 ${value}`}"
-                    class="guess-option ${value === 10 ? "col-start-2" : ""} flex aspect-square items-center justify-center rounded-xl border border-stone-700 bg-stone-800 text-xl font-black text-stone-100 transition hover:border-stone-500 hover:bg-stone-700"
+                    class="guess-option ${value === 10 ? "col-start-2" : ""} flex aspect-square items-center justify-center rounded-lg border border-stone-700 bg-stone-800 text-lg font-black text-stone-100 transition hover:border-stone-500 hover:bg-stone-700 sm:rounded-xl sm:text-xl"
                   >${value === DASH ? "—" : value}</button>
                 `,
               )
