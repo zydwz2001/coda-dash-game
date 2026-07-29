@@ -185,9 +185,13 @@
     const url = new URL(window.location.href);
     if (roomCode) {
       url.searchParams.set("room", roomCode);
-      url.searchParams.set("server", state.backendUrl);
     } else {
       url.searchParams.delete("room");
+    }
+    if (state.backendUrl === PUBLIC_BACKEND_URL) {
+      url.searchParams.delete("server");
+    } else {
+      url.searchParams.set("server", state.backendUrl);
     }
     window.history.replaceState({}, "", url);
   }
