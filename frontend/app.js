@@ -271,6 +271,11 @@
       extraHeaders: {
         "Bypass-Tunnel-Reminder": "true",
       },
+      // Localtunnel can hold browser polling requests open indefinitely while
+      // still proxying WebSocket upgrades correctly. Prefer WebSocket and keep
+      // polling as a fallback for ordinary deployments.
+      transports: ["websocket", "polling"],
+      tryAllTransports: true,
     });
 
     state.socket.on("connect", async () => {
