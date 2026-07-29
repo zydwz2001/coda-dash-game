@@ -438,13 +438,28 @@ test("lobby stays usable at a phone viewport", async ({ page }) => {
   await expect(page.getByText("无需登录")).toHaveCount(0);
   await expect(page.getByText(/黑白 0–11/)).toHaveCount(0);
   await expect(page.getByText(/当前后端/)).toHaveCount(0);
+  await expect(page.getByText("看见颜色，")).toBeVisible();
+  await expect(page.getByText("猜出密码。")).toBeVisible();
+  await expect(page.getByText("经典推理桌游")).toBeHidden();
+  await expect(page.getByText(/牌面越沉默/)).toBeHidden();
 
   const viewportMetrics = await page.evaluate(() => ({
     viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
     pageWidth: document.documentElement.scrollWidth,
+    pageHeight: document.documentElement.scrollHeight,
+    joinButtonBottom: Array.from(document.querySelectorAll("button"))
+      .find((button) => button.textContent.trim() === "加入")
+      ?.getBoundingClientRect().bottom,
   }));
   expect(viewportMetrics.pageWidth).toBeLessThanOrEqual(
     viewportMetrics.viewportWidth,
+  );
+  expect(viewportMetrics.pageHeight).toBeLessThanOrEqual(
+    viewportMetrics.viewportHeight,
+  );
+  expect(viewportMetrics.joinButtonBottom).toBeLessThanOrEqual(
+    viewportMetrics.viewportHeight,
   );
 
   mkdirSync("artifacts", { recursive: true });

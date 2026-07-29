@@ -450,9 +450,9 @@
 
   function renderAvatarPicker() {
     return `
-      <fieldset class="mt-5">
-        <legend class="mb-2 text-xs font-bold text-white/55">选择头像</legend>
-        <div class="grid grid-cols-4 gap-2 sm:grid-cols-8">
+      <fieldset class="mt-4 sm:mt-5">
+        <legend class="mb-1.5 text-xs font-bold text-white/55 sm:mb-2">选择头像</legend>
+        <div class="grid grid-cols-4 gap-1.5 sm:grid-cols-8 sm:gap-2">
           ${AVATARS.map(
             (avatarId, index) => `
               <button
@@ -461,7 +461,7 @@
                 data-avatar-id="${avatarId}"
                 aria-label="选择头像 ${index + 1}"
                 aria-pressed="${state.avatarId === avatarId}"
-                class="relative aspect-square overflow-hidden rounded-2xl border-2 transition active:scale-95 ${
+                class="relative aspect-square overflow-hidden rounded-xl border-2 transition active:scale-95 sm:rounded-2xl ${
                   state.avatarId === avatarId
                     ? "border-amber-400 ring-4 ring-amber-500/15"
                     : "border-stone-700 opacity-65 hover:border-stone-500 hover:opacity-100"
@@ -477,7 +477,7 @@
             `,
           ).join("")}
         </div>
-        <p class="mt-2 text-[0.68rem] text-stone-600">同一房间内每个头像只能由一位玩家使用。</p>
+        <p class="mt-1.5 text-[0.65rem] text-stone-600 sm:mt-2 sm:text-[0.68rem]">同一房间内每个头像只能由一位玩家使用。</p>
       </fieldset>
     `;
   }
@@ -485,20 +485,20 @@
   function renderLobby() {
     const roomPrefill = state.joinCode || query.get("room") || "";
     return `
-      <div class="grid flex-1 items-center gap-7 py-4 sm:py-7 lg:grid-cols-[1.08fr_0.92fr] lg:gap-14">
+      <div class="grid flex-1 content-start gap-4 py-1 sm:items-center sm:gap-7 sm:py-7 lg:grid-cols-[1.08fr_0.92fr] lg:gap-14">
         <section class="mx-auto w-full max-w-3xl lg:mx-0">
-          <div class="mb-5 flex items-center gap-3">
+          <div class="mb-5 hidden items-center gap-3 sm:flex">
             <p class="eyebrow">经典推理桌游</p>
             <span class="h-px flex-1 bg-gradient-to-r from-white/15 to-transparent"></span>
           </div>
-          <h1 class="max-w-3xl text-[2.85rem] font-black leading-[0.94] tracking-[-0.06em] text-white min-[430px]:text-6xl sm:text-7xl lg:text-[6.1rem]">
+          <h1 class="max-w-3xl text-[2.65rem] font-black leading-[0.94] tracking-[-0.06em] text-white min-[430px]:text-5xl sm:text-7xl lg:text-[6.1rem]">
             看见颜色，<br />
             <span class="bg-gradient-to-r from-white/24 to-white/8 bg-clip-text text-transparent">猜出密码。</span>
           </h1>
-          <p class="mt-5 max-w-xl text-sm leading-6 text-white/52 sm:mt-7 sm:text-lg sm:leading-7">
+          <p class="mt-5 hidden max-w-xl text-sm leading-6 text-white/52 sm:mt-7 sm:block sm:text-lg sm:leading-7">
             牌面越沉默，信息越响亮。按序排列你的数字，把百搭牌藏在任意位置，然后逐张拆穿对手。
           </p>
-          <div class="mt-6 grid max-w-xl grid-cols-3 gap-2 sm:mt-9 sm:gap-3">
+          <div class="mt-6 hidden max-w-xl grid-cols-3 gap-2 sm:mt-9 sm:grid sm:gap-3">
             ${[
               ["26", "张黑白密码牌"],
               ["2–4", "位推理玩家"],
@@ -521,8 +521,8 @@
           </div>
         </section>
 
-        <section class="panel mx-auto w-full max-w-xl p-4 sm:p-7">
-          <div class="mb-6">
+        <section class="panel mx-auto w-full max-w-xl p-3.5 sm:p-7">
+          <div class="mb-4 sm:mb-6">
             <p class="eyebrow">进入牌桌</p>
             <h2 class="mt-2 text-xl font-black tracking-tight sm:text-2xl">开始一局推理</h2>
           </div>
@@ -539,14 +539,14 @@
           />
           ${renderAvatarPicker()}
 
-          <form data-form="create-room" class="mt-5">
+          <form data-form="create-room" class="mt-4 sm:mt-5">
             <button class="btn-primary w-full" ${state.connected ? "" : "disabled"}>
               <span>创建新房间</span>
               <span aria-hidden="true">→</span>
             </button>
           </form>
 
-          <div class="my-5 flex items-center gap-3">
+          <div class="my-3.5 flex items-center gap-3 sm:my-5">
             <span class="h-px flex-1 bg-white/8"></span>
             <span class="text-[0.65rem] font-bold tracking-[0.2em] text-white/25">或加入房间</span>
             <span class="h-px flex-1 bg-white/8"></span>
