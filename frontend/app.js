@@ -437,7 +437,7 @@
 
   function renderShell(content) {
     return `
-      <div class="safe-bottom mx-auto flex min-h-[100dvh] w-full min-w-0 max-w-[1480px] flex-col overflow-x-hidden px-3 sm:px-6 lg:px-8">
+      <div class="safe-bottom mx-auto flex min-h-[100dvh] w-full min-w-0 max-w-[1480px] flex-col overflow-x-hidden px-3 sm:px-6 lg:px-8 lg:pb-0">
         <main class="flex min-w-0 flex-1 flex-col py-4 sm:py-6">${content}</main>
       </div>
       ${state.showSettings ? renderSettingsModal() : ""}
@@ -514,10 +514,10 @@
               )
               .join("")}
           </div>
-          <div class="mt-7 hidden items-end gap-3 sm:flex" aria-hidden="true">
+          <div class="mt-3 flex items-end justify-end gap-2 pr-1 sm:mt-7 sm:justify-start sm:gap-3 sm:pr-0" aria-hidden="true">
             <div class="tile tile-black -rotate-6 opacity-55"><span class="text-[0.58rem] font-black opacity-40">黑</span><span class="text-3xl font-black">?</span><span class="text-[0.5rem] opacity-30"></span></div>
             <div class="tile tile-white translate-y-2 rotate-3"><span class="text-[0.58rem] font-black opacity-40">白</span><span class="text-3xl font-black">—</span><span class="text-[0.5rem] opacity-30">百搭牌</span></div>
-            <p class="mb-2 max-w-[13rem] text-xs leading-5 text-white/28">两种颜色，一套顺序。<br />唯一的例外，就是最好的伪装。</p>
+            <p class="mb-1 max-w-[10.5rem] text-[0.65rem] leading-4 text-white/28 sm:mb-2 sm:max-w-[13rem] sm:text-xs sm:leading-5">两种颜色，一套顺序。<br />唯一的例外，就是最好的伪装。</p>
           </div>
         </section>
 

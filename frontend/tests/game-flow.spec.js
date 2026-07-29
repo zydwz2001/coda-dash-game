@@ -442,6 +442,7 @@ test("lobby stays usable at a phone viewport", async ({ page }) => {
   await expect(page.getByText("猜出密码。")).toBeVisible();
   await expect(page.getByText("经典推理桌游")).toBeHidden();
   await expect(page.getByText(/牌面越沉默/)).toBeHidden();
+  await expect(page.getByText(/两种颜色，一套顺序/)).toBeVisible();
 
   const viewportMetrics = await page.evaluate(() => ({
     viewportWidth: window.innerWidth,
@@ -467,6 +468,28 @@ test("lobby stays usable at a phone viewport", async ({ page }) => {
     path: "artifacts/coda-lobby-mobile.png",
     fullPage: true,
   });
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const desktopSpacing = await page.evaluate(() => {
+    const sections = document.querySelectorAll("main section");
+    const top = Math.min(
+      ...Array.from(sections, (section) => section.getBoundingClientRect().top),
+    );
+    const bottom = Math.max(
+      ...Array.from(
+        sections,
+        (section) => section.getBoundingClientRect().bottom,
+      ),
+    );
+    return {
+      top,
+      bottom: window.innerHeight - bottom,
+    };
+  });
+  expect(Math.abs(desktopSpacing.top - desktopSpacing.bottom)).toBeLessThanOrEqual(
+    1,
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
 
   await page.getByRole("button", { name: "创建新房间" }).click();
   await expect(page).toHaveURL(/room=\d{4}/);
