@@ -19,6 +19,9 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
   const backendQuery = encodeURIComponent("http://127.0.0.1:3100");
   await firstPage.goto(`/?server=${backendQuery}`);
   await firstPage.locator("#nickname").fill("Ada");
+  await firstPage
+    .locator('[data-action="select-avatar"][data-avatar-id="avatar-01"]')
+    .click();
   await expect(
     firstPage.getByRole("button", { name: "创建新房间" }),
   ).toBeEnabled();
@@ -33,6 +36,9 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
     `/?server=${backendQuery}&room=${encodeURIComponent(roomCode)}`,
   );
   await secondPage.locator("#nickname").fill("Turing");
+  await secondPage
+    .locator('[data-action="select-avatar"][data-avatar-id="avatar-02"]')
+    .click();
   await expect(secondPage.getByRole("button", { name: "加入" })).toBeEnabled();
   await secondPage.getByRole("button", { name: "加入" }).click();
 
@@ -52,6 +58,9 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
 
   await expect(
     firstPage.getByRole("heading", { name: "全员秘密准备" }),
+  ).toBeVisible();
+  await expect(
+    firstPage.getByText(/超时后服务端会自动将未提交的 Dash 随机放入合法位置/),
   ).toBeVisible();
   await expect(secondPage.getByText(/颜色与张数已隐藏/)).toBeVisible();
   await expect(firstPage.getByText(/颜色与张数已隐藏/)).toBeVisible();
@@ -148,6 +157,7 @@ test("lobby stays usable at a phone viewport", async ({ page }) => {
   await expect(page.getByRole("button", { name: "已连接" })).toBeVisible();
   await expect(page.getByRole("button", { name: "创建新房间" })).toBeVisible();
   await expect(page.locator("#nickname")).toBeVisible();
+  await expect(page.locator('[data-action="select-avatar"]')).toHaveCount(8);
   await expect(page.getByPlaceholder("请输入房间号")).toBeVisible();
   await expect(page.getByText("无需登录")).toHaveCount(0);
   await expect(page.getByText(/黑白 0–11/)).toHaveCount(0);

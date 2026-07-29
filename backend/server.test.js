@@ -108,6 +108,20 @@ function ownPlayer(state) {
   return state.players.find((player) => player.id === state.selfPlayerId);
 }
 
+test("timed-out Dash tiles are randomly inserted without changing numeric order", () => {
+  const hand = [
+    { id: "black-1", color: "black", value: 1 },
+    { id: "white-3", color: "white", value: 3 },
+    { id: "dash", color: "black", value: DASH },
+    { id: "black-5", color: "black", value: 5 },
+  ];
+  const arranged = _internals.randomizeDashPositions(hand, () => 1);
+  assert.deepEqual(
+    arranged.map((tile) => tile.id),
+    ["black-1", "dash", "white-3", "black-5"],
+  );
+});
+
 test("two-player Socket.IO flow preserves identity and hides face-down values", async (t) => {
   const gameServer = createGameServer({
     deckFactory: createDeterministicDeck,
@@ -132,6 +146,7 @@ test("two-player Socket.IO flow preserves identity and hides face-down values", 
   const secondToken = "player_two_token_00000000000";
   const created = await emitAck(firstSocket, "create_room", {
     nickname: "Ada",
+    avatarId: "avatar-01",
     playerToken: firstToken,
   });
   assert.equal(created.ok, true);
@@ -143,9 +158,14 @@ test("two-player Socket.IO flow preserves identity and hides face-down values", 
   const joined = await emitAck(secondSocket, "join_room", {
     roomCode: created.roomCode,
     nickname: "Turing",
+    avatarId: "avatar-02",
     playerToken: secondToken,
   });
   assert.equal(joined.ok, true);
+  assert.deepEqual(
+    firstObserved.room.players.map((player) => player.avatarId),
+    ["avatar-01", "avatar-02"],
+  );
 
   assert.equal(
     (await emitAck(firstSocket, "set_ready", { isReady: true })).ok,
@@ -380,12 +400,23 @@ test("leaving a lobby removes the seat and transfers host control", async (t) =>
 
   const created = await emitAck(firstSocket, "create_room", {
     nickname: "Host",
+    avatarId: "avatar-01",
     playerToken: "leaving_host_token_0000000000",
   });
   const secondObserved = observeStates(secondSocket);
+  const duplicateAvatar = await emitAck(secondSocket, "join_room", {
+    roomCode: created.roomCode,
+    nickname: "Guest",
+    avatarId: "avatar-01",
+    playerToken: "remaining_guest_token_0000000",
+  });
+  assert.equal(duplicateAvatar.ok, false);
+  assert.equal(duplicateAvatar.error.code, "AVATAR_TAKEN");
+
   const joined = await emitAck(secondSocket, "join_room", {
     roomCode: created.roomCode,
     nickname: "Guest",
+    avatarId: "avatar-02",
     playerToken: "remaining_guest_token_0000000",
   });
   assert.equal(joined.ok, true);
@@ -402,6 +433,7 @@ test("leaving a lobby removes the seat and transfers host control", async (t) =>
 
   const replacementRoom = await emitAck(firstSocket, "create_room", {
     nickname: "Host Again",
+    avatarId: "avatar-03",
     playerToken: "leaving_host_token_0000000000",
   });
   assert.equal(replacementRoom.ok, true);

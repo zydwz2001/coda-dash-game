@@ -4,10 +4,15 @@
   const STORAGE_KEYS = {
     playerToken: "coda.playerToken",
     nickname: "coda.nickname",
+    avatarId: "coda.avatarId",
     roomCode: "coda.roomCode",
     backendUrl: "coda.backendUrl",
   };
   const DASH = "-";
+  const AVATARS = Array.from(
+    { length: 8 },
+    (_, index) => `avatar-${String(index + 1).padStart(2, "0")}`,
+  );
 
   const app = document.querySelector("#app");
   const toastRoot = document.querySelector("#toast-root");
@@ -62,9 +67,14 @@
     randomNames[Math.floor(Math.random() * randomNames.length)];
   const initialPlayerToken =
     storage.get(STORAGE_KEYS.playerToken) || createPlayerToken();
+  const storedAvatarId = storage.get(STORAGE_KEYS.avatarId);
+  const initialAvatarId = AVATARS.includes(storedAvatarId)
+    ? storedAvatarId
+    : AVATARS[Math.floor(Math.random() * AVATARS.length)];
 
   storage.set(STORAGE_KEYS.playerToken, initialPlayerToken);
   storage.set(STORAGE_KEYS.nickname, initialNickname);
+  storage.set(STORAGE_KEYS.avatarId, initialAvatarId);
 
   const state = {
     socket: null,
@@ -74,6 +84,7 @@
     playerToken: initialPlayerToken,
     playerId: null,
     nickname: initialNickname,
+    avatarId: initialAvatarId,
     roomCode: storage.get(STORAGE_KEYS.roomCode),
     roomState: null,
     gameState: null,
@@ -107,6 +118,11 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }
+
+  function avatarUrl(avatarId) {
+    const safeAvatarId = AVATARS.includes(avatarId) ? avatarId : AVATARS[0];
+    return `./assets/avatars/${safeAvatarId}.jpg`;
   }
 
   function formatPhase(phase) {
@@ -411,6 +427,40 @@
     `;
   }
 
+  function renderAvatarPicker() {
+    return `
+      <fieldset class="mt-5">
+        <legend class="mb-2 text-xs font-bold text-white/55">选择头像</legend>
+        <div class="grid grid-cols-4 gap-2 sm:grid-cols-8">
+          ${AVATARS.map(
+            (avatarId, index) => `
+              <button
+                type="button"
+                data-action="select-avatar"
+                data-avatar-id="${avatarId}"
+                aria-label="选择头像 ${index + 1}"
+                aria-pressed="${state.avatarId === avatarId}"
+                class="relative aspect-square overflow-hidden rounded-2xl border-2 transition active:scale-95 ${
+                  state.avatarId === avatarId
+                    ? "border-amber-400 ring-4 ring-amber-500/15"
+                    : "border-stone-700 opacity-65 hover:border-stone-500 hover:opacity-100"
+                }"
+              >
+                <img src="${avatarUrl(avatarId)}" alt="" class="h-full w-full object-cover" />
+                ${
+                  state.avatarId === avatarId
+                    ? `<span class="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[0.62rem] font-black text-stone-950">✓</span>`
+                    : ""
+                }
+              </button>
+            `,
+          ).join("")}
+        </div>
+        <p class="mt-2 text-[0.68rem] text-stone-600">同一房间内每个头像只能由一位玩家使用。</p>
+      </fieldset>
+    `;
+  }
+
   function renderLobby() {
     const roomPrefill = state.joinCode || query.get("room") || "";
     return `
@@ -466,6 +516,7 @@
             value="${escapeHtml(state.nickname)}"
             placeholder="输入昵称"
           />
+          ${renderAvatarPicker()}
 
           <form data-form="create-room" class="mt-5">
             <button class="btn-primary w-full" ${state.connected ? "" : "disabled"}>
@@ -520,9 +571,11 @@
       <div class="rounded-2xl border ${isSelf ? "border-coral-500/35 bg-coral-500/[0.06]" : "border-white/10 bg-white/[0.04]"} p-3.5 sm:rounded-3xl sm:p-5">
         <div class="flex items-start justify-between gap-3">
           <div class="flex min-w-0 items-center gap-3">
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${player.isConnected ? "bg-white/10" : "bg-white/5"} text-xs font-black sm:h-11 sm:w-11 sm:rounded-2xl sm:text-sm">
-              ${escapeHtml(player.nickname.slice(0, 1).toUpperCase())}
-            </div>
+            <img
+              src="${avatarUrl(player.avatarId)}"
+              alt="${escapeHtml(player.nickname)} 的头像"
+              class="h-9 w-9 shrink-0 rounded-xl border border-white/10 object-cover sm:h-11 sm:w-11 sm:rounded-2xl ${player.isConnected ? "" : "grayscale opacity-45"}"
+            />
             <div class="min-w-0">
               <p class="truncate font-bold">${escapeHtml(player.nickname)}${isSelf ? "（你）" : ""}</p>
               <p class="mt-1 text-xs ${player.isConnected ? "text-lime-300/65" : "text-red-300/60"}">
@@ -664,9 +717,12 @@
     return `
       <section class="min-w-[82vw] snap-center rounded-2xl border ${player.isCurrentTurn ? "border-lime-300/35 bg-lime-300/[0.045] shadow-lg shadow-lime-300/5" : "border-white/8 bg-white/[0.025]"} p-3 sm:min-w-[60vw] sm:rounded-3xl sm:p-4 md:min-w-0">
         <div class="mb-2 flex items-center justify-between gap-3">
-          <div>
-            <h3 class="font-bold ${player.isEliminated ? "text-white/35 line-through" : "text-white"}">${escapeHtml(player.nickname)}</h3>
-            <p class="mt-0.5 text-[0.65rem] font-bold uppercase tracking-[0.16em] ${player.isCurrentTurn ? "text-lime-300" : "text-white/25"}">${playerStatusLabel(player)}</p>
+          <div class="flex min-w-0 items-center gap-2.5">
+            <img src="${avatarUrl(player.avatarId)}" alt="" class="h-9 w-9 shrink-0 rounded-xl border border-white/10 object-cover ${player.isEliminated ? "grayscale opacity-40" : ""}" />
+            <div class="min-w-0">
+              <h3 class="truncate font-bold ${player.isEliminated ? "text-white/35 line-through" : "text-white"}">${escapeHtml(player.nickname)}</h3>
+              <p class="mt-0.5 text-[0.65rem] font-bold uppercase tracking-[0.16em] ${player.isCurrentTurn ? "text-lime-300" : "text-white/25"}">${playerStatusLabel(player)}</p>
+            </div>
           </div>
           <span class="h-2.5 w-2.5 rounded-full ${player.isConnected ? "bg-lime-300/70" : "bg-red-400/70"}"></span>
         </div>
@@ -731,6 +787,7 @@
             <p class="eyebrow">SECRET SETUP</p>
             <h1 class="mt-2 text-2xl font-black tracking-tight sm:text-4xl">全员秘密准备</h1>
             <p class="mt-2 max-w-2xl text-sm leading-6 text-stone-500">所有玩家使用相同的固定准备时间，对手的颜色、张数和完成状态全部隐藏。</p>
+            <p class="mt-1 text-xs font-bold leading-5 text-amber-400/80">请在 10 秒内完成；超时后服务端会自动将未提交的 Dash 随机放入合法位置，并统一开局。</p>
           </div>
           <span
             data-setup-countdown
@@ -982,9 +1039,12 @@
 
           <section class="rounded-2xl border ${self?.isCurrentTurn ? "border-amber-500/45 bg-amber-950/15" : "border-stone-800 bg-stone-950/70"} p-3 sm:rounded-3xl sm:p-5">
             <div class="mb-2 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 class="text-sm font-black text-amber-300 sm:text-base">${escapeHtml(self?.nickname || state.nickname)} <span class="text-stone-500">/ 你的手牌</span></h3>
-                ${self?.isEliminated ? `<p class="mt-1 text-[0.68rem] text-stone-600 sm:text-xs">你已被淘汰，但仍可观战。</p>` : ""}
+              <div class="flex min-w-0 items-center gap-2.5">
+                <img src="${avatarUrl(self?.avatarId || state.avatarId)}" alt="" class="h-9 w-9 shrink-0 rounded-xl border border-white/10 object-cover" />
+                <div class="min-w-0">
+                  <h3 class="truncate text-sm font-black text-amber-300 sm:text-base">${escapeHtml(self?.nickname || state.nickname)} <span class="text-stone-500">/ 你的手牌</span></h3>
+                  ${self?.isEliminated ? `<p class="mt-1 text-[0.68rem] text-stone-600 sm:text-xs">你已被淘汰，但仍可观战。</p>` : ""}
+                </div>
               </div>
               <span class="rounded-full border border-stone-800 px-3 py-1.5 text-[0.62rem] font-bold text-stone-500">${self?.hand?.length || 0} 张</span>
             </div>
@@ -1078,6 +1138,7 @@
   async function createRoom() {
     const response = await runAction("create_room", {
       nickname: state.nickname,
+      avatarId: state.avatarId,
       playerToken: state.playerToken,
     });
     if (!response) {
@@ -1094,6 +1155,7 @@
     const response = await runAction("join_room", {
       roomCode,
       nickname: state.nickname,
+      avatarId: state.avatarId,
       playerToken: state.playerToken,
     });
     if (!response) {
@@ -1163,6 +1225,13 @@
     if (action === "open-settings") {
       state.showSettings = true;
       render();
+    } else if (action === "select-avatar") {
+      const avatarId = trigger.dataset.avatarId;
+      if (AVATARS.includes(avatarId)) {
+        state.avatarId = avatarId;
+        storage.set(STORAGE_KEYS.avatarId, avatarId);
+        render();
+      }
     } else if (action === "close-settings") {
       state.showSettings = false;
       render();

@@ -23,6 +23,12 @@ const MAX_PLAYERS = 4;
 const MIN_PLAYERS = 2;
 const MAX_LOGS = 100;
 const SETUP_DURATION_MS = 10_000;
+const AVATAR_IDS = Object.freeze(
+  Array.from(
+    { length: 8 },
+    (_, index) => `avatar-${String(index + 1).padStart(2, "0")}`,
+  ),
+);
 
 class GameError extends Error {
   constructor(code, message) {
@@ -76,6 +82,15 @@ function normalizePlayerToken(value, { allowGenerate = false } = {}) {
       /^[A-Za-z0-9_-]+$/.test(value),
     "INVALID_PLAYER_TOKEN",
     "A valid player token is required.",
+  );
+  return value;
+}
+
+function normalizeAvatarId(value) {
+  assertGame(
+    typeof value === "string" && AVATAR_IDS.includes(value),
+    "INVALID_AVATAR",
+    "请选择一个有效头像。",
   );
   return value;
 }
@@ -138,6 +153,21 @@ function sortInitialHand(hand) {
   return [...numericTiles, ...dashTiles];
 }
 
+function randomizeDashPositions(
+  hand,
+  chooseIndex = (upperBound) => randomInt(upperBound),
+) {
+  const arrangedHand = hand
+    .filter((tile) => tile.value !== DASH)
+    .sort(compareNumericTiles);
+  const dashTiles = hand.filter((tile) => tile.value === DASH);
+  for (const dashTile of dashTiles) {
+    const insertionIndex = chooseIndex(arrangedHand.length + 1);
+    arrangedHand.splice(insertionIndex, 0, dashTile);
+  }
+  return arrangedHand;
+}
+
 // Numeric tiles are inserted without moving a previously positioned Dash across
 // another existing numeric tile. Removing all Dash tiles always leaves a sorted list.
 function insertNumericTile(hand, tile) {
@@ -153,12 +183,13 @@ function insertNumericTile(hand, tile) {
   }
 }
 
-function createPlayer({ nickname, playerToken, socketId, isHost }) {
+function createPlayer({ nickname, avatarId, playerToken, socketId, isHost }) {
   return {
     id: randomUUID(), // Public ID. Never use playerToken as a public player ID.
     playerToken,
     socketId,
     nickname,
+    avatarId,
     isHost,
     isReady: false,
     isConnected: true,
@@ -355,6 +386,9 @@ function finishInitialSetup(room) {
     "The room is not in the initial setup phase.",
   );
   for (const player of room.players) {
+    if (!player.hasSetupDash && player.needsDashSetup) {
+      player.hand = randomizeDashPositions(player.hand);
+    }
     player.hasSetupDash = true;
   }
   room.status = ROOM_STATUS.PLAYING;
@@ -656,6 +690,7 @@ function serializePlayerForViewer(room, targetPlayer, viewerPlayer) {
   const serialized = {
     id: targetPlayer.id,
     nickname: targetPlayer.nickname,
+    avatarId: targetPlayer.avatarId,
     isHost: targetPlayer.isHost,
     isConnected: targetPlayer.isConnected,
     isEliminated: targetPlayer.isEliminated,
@@ -730,6 +765,7 @@ function serializeRoomState(room) {
       id: player.id,
       seatIndex,
       nickname: player.nickname,
+      avatarId: player.avatarId,
       isHost: player.isHost,
       isReady: player.isReady,
       isConnected: player.isConnected,
@@ -976,12 +1012,14 @@ function createGameServer(options = {}) {
     registerEvent(socket, "create_room", async (payload) => {
       assertUnattached(socket);
       const nickname = normalizeNickname(payload.nickname);
+      const avatarId = normalizeAvatarId(payload.avatarId);
       const playerToken = normalizePlayerToken(payload.playerToken, {
         allowGenerate: true,
       });
       const roomCode = generateRoomCode(rooms);
       const player = createPlayer({
         nickname,
+        avatarId,
         playerToken,
         socketId: socket.id,
         isHost: true,
@@ -1034,8 +1072,15 @@ function createGameServer(options = {}) {
         "The room is full.",
       );
 
+      const avatarId = normalizeAvatarId(payload.avatarId);
+      assertGame(
+        !room.players.some((candidate) => candidate.avatarId === avatarId),
+        "AVATAR_TAKEN",
+        "这个头像已被房间内的其他玩家使用，请选择另一个头像。",
+      );
       const player = createPlayer({
         nickname: normalizeNickname(payload.nickname),
+        avatarId,
         playerToken,
         socketId: socket.id,
         isHost: false,
@@ -1233,6 +1278,7 @@ module.exports = {
     createPlayer,
     createRoom,
     sortInitialHand,
+    randomizeDashPositions,
     insertNumericTile,
     startGameForRoom,
     confirmDashForPlayer,
