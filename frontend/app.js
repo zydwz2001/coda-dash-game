@@ -10,7 +10,10 @@
   };
   const DASH = "-";
   const PUBLIC_BACKEND_URL =
-    "https://walked-struct-confident-excerpt.trycloudflare.com";
+    "https://highways-flashing-flag-predicted.trycloudflare.com";
+  const RETIRED_BACKEND_URLS = new Set([
+    "https://walked-struct-confident-excerpt.trycloudflare.com",
+  ]);
   const AVATARS = Array.from(
     { length: 8 },
     (_, index) => `avatar-${String(index + 1).padStart(2, "0")}`,
@@ -64,9 +67,17 @@
   const defaultBackendUrl = window.location.hostname.endsWith("github.io")
     ? PUBLIC_BACKEND_URL
     : "http://localhost:3000";
-  const initialBackendUrl =
+  const preferredBackendUrl =
     query.get("server") ||
     storage.get(STORAGE_KEYS.backendUrl, defaultBackendUrl);
+  const normalizedPreferredBackendUrl = normalizeBackendUrl(
+    preferredBackendUrl,
+  );
+  const initialBackendUrl = RETIRED_BACKEND_URLS.has(
+    normalizedPreferredBackendUrl,
+  )
+    ? defaultBackendUrl
+    : normalizedPreferredBackendUrl;
   const initialNickname =
     storage.get(STORAGE_KEYS.nickname) ||
     randomNames[Math.floor(Math.random() * randomNames.length)];
