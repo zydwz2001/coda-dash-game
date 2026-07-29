@@ -1425,7 +1425,9 @@ function createGameServer(options = {}) {
     rooms,
     start(port = Number(process.env.PORT) || 3000) {
       return new Promise((resolve) => {
-        httpServer.listen(port, () => resolve(httpServer.address()));
+        httpServer.listen(port, "0.0.0.0", () =>
+          resolve(httpServer.address()),
+        );
       });
     },
     stop() {
