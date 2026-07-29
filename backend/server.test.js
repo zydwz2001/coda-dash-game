@@ -439,3 +439,120 @@ test("leaving a lobby removes the seat and transfers host control", async (t) =>
   assert.equal(replacementRoom.ok, true);
   assert.match(replacementRoom.roomCode, /^\d{4}$/);
 });
+
+test("host can refresh seats and kick another lobby player", async (t) => {
+  const gameServer = createGameServer();
+  const address = await gameServer.start(0);
+  const url = `http://127.0.0.1:${address.port}`;
+  const hostSocket = await connectClient(url);
+  const guestSocket = await connectClient(url);
+
+  t.after(async () => {
+    hostSocket.disconnect();
+    guestSocket.disconnect();
+    await gameServer.stop();
+  });
+
+  const hostObserved = observeStates(hostSocket);
+  const created = await emitAck(hostSocket, "create_room", {
+    nickname: "Host",
+    avatarId: "avatar-01",
+    playerToken: "kick_host_token_000000000000",
+  });
+  const joined = await emitAck(guestSocket, "join_room", {
+    roomCode: created.roomCode,
+    nickname: "Guest",
+    avatarId: "avatar-02",
+    playerToken: "kick_guest_token_00000000000",
+  });
+  assert.equal(joined.ok, true);
+
+  const refreshed = await emitAck(hostSocket, "refresh_room");
+  assert.equal(refreshed.ok, true);
+  assert.equal(hostObserved.room.players.length, 2);
+
+  const kickedEvent = new Promise((resolve) => {
+    guestSocket.once("kicked_from_room", resolve);
+  });
+  const kicked = await emitAck(hostSocket, "kick_player", {
+    playerId: joined.playerId,
+  });
+  assert.equal(kicked.ok, true);
+  assert.equal((await kickedEvent).message, "你已被房主移出房间。");
+  assert.equal(hostObserved.room.players.length, 1);
+
+  const guestRoom = await emitAck(guestSocket, "create_room", {
+    nickname: "Guest",
+    avatarId: "avatar-02",
+    playerToken: "kick_guest_token_00000000000",
+  });
+  assert.equal(guestRoom.ok, true);
+});
+
+test("finished players can rematch or return home without losing profiles", async (t) => {
+  const gameServer = createGameServer();
+  const address = await gameServer.start(0);
+  const url = `http://127.0.0.1:${address.port}`;
+  const firstSocket = await connectClient(url);
+  const secondSocket = await connectClient(url);
+
+  t.after(async () => {
+    firstSocket.disconnect();
+    secondSocket.disconnect();
+    await gameServer.stop();
+  });
+
+  const firstObserved = observeStates(firstSocket);
+  const created = await emitAck(firstSocket, "create_room", {
+    nickname: "Ada",
+    avatarId: "avatar-01",
+    playerToken: "rematch_ada_token_00000000000",
+  });
+  const joined = await emitAck(secondSocket, "join_room", {
+    roomCode: created.roomCode,
+    nickname: "Turing",
+    avatarId: "avatar-02",
+    playerToken: "rematch_turing_token_0000000",
+  });
+  assert.equal(joined.ok, true);
+
+  const room = gameServer.rooms.get(created.roomCode);
+  room.status = ROOM_STATUS.FINISHED;
+  room.winnerPlayerId = created.playerId;
+  room.players.forEach((player) => {
+    player.isReady = true;
+    player.hand = [{ id: `${player.id}-tile`, color: "black", value: 1 }];
+  });
+
+  const rematch = await emitAck(firstSocket, "play_again");
+  assert.equal(rematch.ok, true);
+  assert.equal(room.status, ROOM_STATUS.LOBBY);
+  assert.equal(room.players.every((player) => !player.isReady), true);
+  assert.equal(room.players.every((player) => player.hand.length === 0), true);
+  assert.deepEqual(
+    room.players.map(({ nickname, avatarId }) => ({ nickname, avatarId })),
+    [
+      { nickname: "Ada", avatarId: "avatar-01" },
+      { nickname: "Turing", avatarId: "avatar-02" },
+    ],
+  );
+
+  room.status = ROOM_STATUS.FINISHED;
+  room.winnerPlayerId = created.playerId;
+  const returned = await emitAck(secondSocket, "return_to_home");
+  assert.equal(returned.ok, true);
+  await waitFor(
+    () =>
+      firstObserved.room?.players.find(
+        (player) => player.id === joined.playerId,
+      )?.isConnected === false,
+    "Returning home did not update the remaining player.",
+  );
+
+  const newRoom = await emitAck(secondSocket, "create_room", {
+    nickname: "Turing",
+    avatarId: "avatar-02",
+    playerToken: "rematch_turing_token_0000000",
+  });
+  assert.equal(newRoom.ok, true);
+});

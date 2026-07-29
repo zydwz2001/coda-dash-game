@@ -330,7 +330,7 @@ function startGameForRoom(
   room.status = ROOM_STATUS.SETUP_DASH;
   room.turnPhase = null;
   room.setupEndsAt = Date.now() + Math.max(0, setupDurationMs);
-  addLog(room, "Initial hands were dealt. Everyone is arranging privately.");
+  addLog(room, "初始手牌已发放，全员正在秘密准备。");
 }
 
 function confirmDashForPlayer(room, player, handOrder) {
@@ -396,8 +396,42 @@ function finishInitialSetup(room) {
   room.setupEndsAt = null;
   addLog(
     room,
-    `Secret setup time ended. ${currentPlayer(room).nickname} takes the first turn.`,
+    `秘密准备结束，${currentPlayer(room).nickname} 开始第一回合。`,
   );
+}
+
+function resetRoomForRematch(room) {
+  assertGame(
+    room.status === ROOM_STATUS.FINISHED,
+    "INVALID_ROOM_STATE",
+    "只能在对局结束后再来一局。",
+  );
+  room.players = room.players.filter((player) => player.isConnected);
+  assertGame(
+    room.players.length > 0,
+    "NO_CONNECTED_PLAYERS",
+    "房间内没有在线玩家。",
+  );
+  if (!room.players.some((player) => player.isHost)) {
+    room.players[0].isHost = true;
+  }
+  for (const player of room.players) {
+    player.isReady = false;
+    player.isEliminated = false;
+    player.needsDashSetup = false;
+    player.hasSetupDash = true;
+    player.hand = [];
+  }
+  room.status = ROOM_STATUS.LOBBY;
+  room.drawPiles = { black: [], white: [] };
+  room.currentTurnIndex = null;
+  room.lastTurnPlayerId = null;
+  room.turnPhase = null;
+  room.setupEndsAt = null;
+  room.winnerPlayerId = null;
+  room.logs = [];
+  resetTurn(room);
+  room.updatedAt = Date.now();
 }
 
 function ensureCurrentActor(room, player) {
@@ -443,7 +477,7 @@ function drawForPlayer(room, player, color) {
     drawnTile.value === DASH ? TURN_PHASE.PLACE_DASH : TURN_PHASE.GUESS;
 
   // The value is intentionally omitted from this public log.
-  addLog(room, `${player.nickname} drew a ${color} tile.`);
+  addLog(room, `${player.nickname} 摸了一张${color === "black" ? "黑牌" : "白牌"}。`);
 }
 
 function placeDrawnDashForPlayer(room, player, insertIndex) {
@@ -513,8 +547,8 @@ function finishIfWon(room) {
   addLog(
     room,
     survivors[0]
-      ? `${survivors[0].nickname} wins the game.`
-      : "The game ended without a surviving player.",
+      ? `${survivors[0].nickname} 获得胜利！`
+      : "本局没有获胜玩家。",
   );
   return true;
 }
@@ -566,7 +600,7 @@ function advanceTurn(room) {
         : TURN_PHASE.DRAW;
       addLog(
         room,
-        `${completedPlayer.nickname}'s turn ended. It is now ${room.players[candidateIndex].nickname}'s turn.`,
+        `${completedPlayer.nickname} 的回合结束，轮到 ${room.players[candidateIndex].nickname}。`,
       );
       return;
     }
@@ -599,39 +633,41 @@ function guessForPlayer(room, player, payload) {
   const guessValue = normalizeGuessValue(payload.value);
   const targetTileIndex = target.hand.findIndex((tile) => tile.id === targetTile.id);
   const isCorrect = targetTile.value === guessValue;
-  const guessLabel = guessValue === DASH ? "Dash (-)" : String(guessValue);
+  const guessLabel = guessValue === DASH ? "百搭牌（—）" : String(guessValue);
 
   addLog(
     room,
-    `${player.nickname} guessed ${target.nickname}'s tile #${targetTileIndex + 1} as ${guessLabel}: ${
-      isCorrect ? "correct" : "wrong"
-    }.`,
+    `${player.nickname} 猜测 ${target.nickname} 的第 ${targetTileIndex + 1} 张牌是 ${guessLabel}：${
+      isCorrect ? "猜对" : "猜错"
+    }。`,
   );
 
   if (isCorrect) {
     targetTile.isRevealed = true;
     refreshElimination(target);
     room.turn.lastGuessCorrect = true;
-    if (!finishIfWon(room)) {
+    const gameFinished = finishIfWon(room);
+    if (!gameFinished) {
       room.turnPhase = TURN_PHASE.DECIDE;
     }
-    return { correct: true };
+    return { correct: true, gameFinished };
   }
 
   const revealedDrawnTile = finalizeDrawnTile(room, player, { reveal: true });
   if (revealedDrawnTile) {
     addLog(
       room,
-      `${player.nickname}'s drawn tile was revealed as ${
-        revealedDrawnTile.value === DASH ? "Dash (-)" : revealedDrawnTile.value
-      }.`,
+      `${player.nickname} 本回合摸到的牌已公开：${
+        revealedDrawnTile.value === DASH ? "百搭牌（—）" : revealedDrawnTile.value
+      }。`,
     );
   }
   refreshElimination(player);
-  if (!finishIfWon(room)) {
+  const gameFinished = finishIfWon(room);
+  if (!gameFinished) {
     advanceTurn(room);
   }
-  return { correct: false };
+  return { correct: false, gameFinished };
 }
 
 function continueGuessingForPlayer(room, player) {
@@ -1138,6 +1174,50 @@ function createGameServer(options = {}) {
       emitAllStates(room);
     });
 
+    registerEvent(socket, "refresh_room", () => {
+      const { room } = actorContext(socket);
+      assertGame(
+        room.status === ROOM_STATUS.LOBBY,
+        "INVALID_ROOM_STATE",
+        "只能在等待房间刷新座位。",
+      );
+      emitAllStates(room);
+      return { refreshedAt: Date.now() };
+    });
+
+    registerEvent(socket, "kick_player", async (payload) => {
+      const { room, player } = actorContext(socket);
+      assertGame(
+        room.status === ROOM_STATUS.LOBBY,
+        "INVALID_ROOM_STATE",
+        "只能在等待房间移出玩家。",
+      );
+      assertGame(player.isHost, "HOST_ONLY", "只有房主可以移出玩家。");
+      const target = room.players.find(
+        (candidate) => candidate.id === payload.playerId,
+      );
+      assertGame(target, "PLAYER_NOT_FOUND", "该玩家已不在房间内。");
+      assertGame(target.id !== player.id, "CANNOT_KICK_SELF", "房主不能移出自己。");
+
+      const targetSocket = target.socketId
+        ? io.sockets.sockets.get(target.socketId)
+        : null;
+      if (targetSocket) {
+        targetSocket.data.roomCode = null;
+        targetSocket.data.playerId = null;
+        targetSocket.emit("kicked_from_room", {
+          message: "你已被房主移出房间。",
+        });
+        await targetSocket.leave(room.roomCode);
+      }
+      room.players = room.players.filter(
+        (candidate) => candidate.id !== target.id,
+      );
+      room.updatedAt = Date.now();
+      emitAllStates(room);
+      return { playerId: target.id };
+    });
+
     registerEvent(socket, "leave_room", async () => {
       const { room, player } = actorContext(socket);
       assertGame(
@@ -1162,6 +1242,35 @@ function createGameServer(options = {}) {
         room.updatedAt = Date.now();
         emitAllStates(room);
       }
+      return { roomCode: room.roomCode };
+    });
+
+    registerEvent(socket, "return_to_home", async () => {
+      const { room, player } = actorContext(socket);
+      assertGame(
+        room.status === ROOM_STATUS.FINISHED,
+        "INVALID_ROOM_STATE",
+        "只能在对局结束后回到大厅。",
+      );
+      player.socketId = null;
+      player.isConnected = false;
+      socket.data.roomCode = null;
+      socket.data.playerId = null;
+      await socket.leave(room.roomCode);
+
+      if (room.players.every((candidate) => !candidate.isConnected)) {
+        rooms.delete(room.roomCode);
+      } else {
+        room.updatedAt = Date.now();
+        emitAllStates(room);
+      }
+      return { roomCode: room.roomCode };
+    });
+
+    registerEvent(socket, "play_again", () => {
+      const { room } = actorContext(socket);
+      resetRoomForRematch(room);
+      emitAllStates(room);
       return { roomCode: room.roomCode };
     });
 

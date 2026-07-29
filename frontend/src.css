@@ -106,6 +106,10 @@
     @apply cursor-pointer ring-2 ring-lime-300/0 hover:-translate-y-1 hover:ring-lime-300/80 active:-translate-y-0.5 active:ring-lime-300;
   }
 
+  .tile-revealed {
+    @apply ring-2 ring-amber-400 ring-offset-2 ring-offset-stone-950;
+  }
+
   .tile-relation {
     @apply flex w-3 shrink-0 select-none items-center justify-center font-mono text-base font-black text-amber-500/75 sm:w-4 sm:text-lg;
   }
