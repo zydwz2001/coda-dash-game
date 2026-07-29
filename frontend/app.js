@@ -10,9 +10,10 @@
   };
   const DASH = "-";
   const PUBLIC_BACKEND_URL =
-    "https://highways-flashing-flag-predicted.trycloudflare.com";
+    "https://coda-game-288921-10-1460353596.sh.run.tcloudbase.com";
   const RETIRED_BACKEND_URLS = new Set([
     "https://walked-struct-confident-excerpt.trycloudflare.com",
+    "https://highways-flashing-flag-predicted.trycloudflare.com",
   ]);
   const AVATARS = Array.from(
     { length: 8 },
