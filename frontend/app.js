@@ -519,7 +519,10 @@
               <div class="tile tile-black -rotate-6 opacity-55"><span class="text-[0.58rem] font-black opacity-40">黑</span><span class="text-3xl font-black">?</span><span class="text-[0.5rem] opacity-30"></span></div>
               <div class="tile tile-white translate-y-2 rotate-3"><span class="text-[0.58rem] font-black opacity-40">白</span><span class="text-3xl font-black">—</span><span class="text-[0.5rem] opacity-30">百搭牌</span></div>
             </div>
-            <p class="max-w-[7.5rem] text-[0.58rem] leading-3 text-white/28 lg:mb-2 lg:max-w-[13rem] lg:text-xs lg:leading-5">两种颜色，一套顺序。<br />唯一的例外，就是最好的伪装。</p>
+            <p class="w-full whitespace-nowrap text-[0.5rem] leading-3 text-white/28 lg:mb-2 lg:w-auto lg:max-w-[13rem] lg:text-xs lg:leading-5 lg:whitespace-normal">
+              <span class="block">两种颜色，一套顺序。</span>
+              <span class="block">唯一的例外，就是最好的伪装。</span>
+            </p>
           </div>
         </section>
 
