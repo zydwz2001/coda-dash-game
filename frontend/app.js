@@ -486,7 +486,7 @@
     const roomPrefill = state.joinCode || query.get("room") || "";
     return `
       <div class="grid flex-1 content-center gap-5 py-3 sm:items-center sm:gap-7 sm:py-7 lg:grid-cols-[1.08fr_0.92fr] lg:gap-14">
-        <section class="relative mx-auto min-h-[9.75rem] w-full max-w-3xl lg:mx-0 lg:min-h-0">
+        <section class="relative mx-auto min-h-36 w-full max-w-3xl lg:mx-0 lg:min-h-0">
           <div class="mb-5 hidden items-center gap-3 lg:flex">
             <p class="eyebrow">经典推理桌游</p>
             <span class="h-px flex-1 bg-gradient-to-r from-white/15 to-transparent"></span>
@@ -514,7 +514,7 @@
               )
               .join("")}
           </div>
-          <div class="absolute right-1 top-4 flex w-[7.5rem] flex-col items-center gap-2 lg:static lg:mt-7 lg:w-auto lg:flex-row lg:items-end lg:justify-start lg:gap-3" aria-hidden="true">
+          <div class="absolute right-1 top-4 flex w-[7.5rem] flex-col items-center gap-4 lg:static lg:mt-7 lg:w-auto lg:flex-row lg:items-end lg:justify-start lg:gap-3" aria-hidden="true">
             <div class="flex items-end gap-1.5 lg:gap-3">
               <div class="tile tile-black -rotate-6 opacity-55"><span class="text-[0.58rem] font-black opacity-40">黑</span><span class="text-3xl font-black">?</span><span class="text-[0.5rem] opacity-30"></span></div>
               <div class="tile tile-white translate-y-2 rotate-3"><span class="text-[0.58rem] font-black opacity-40">白</span><span class="text-3xl font-black">—</span><span class="text-[0.5rem] opacity-30">百搭牌</span></div>
