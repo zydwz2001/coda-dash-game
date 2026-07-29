@@ -111,6 +111,7 @@ function ownPlayer(state) {
 test("two-player Socket.IO flow preserves identity and hides face-down values", async (t) => {
   const gameServer = createGameServer({
     deckFactory: createDeterministicDeck,
+    setupDurationMs: 500,
   });
   const address = await gameServer.start(0);
   const url = `http://127.0.0.1:${address.port}`;
@@ -170,6 +171,12 @@ test("two-player Socket.IO flow preserves identity and hides face-down values", 
   );
   assert.equal(firstPlayerFromSecondView.handHidden, true);
   assert.equal(firstPlayerFromSecondView.hand, null);
+  const secondPlayerFromFirstSetupView = firstObserved.game.players.find(
+    (player) => player.id === joined.playerId,
+  );
+  assert.equal(secondPlayerFromFirstSetupView.handHidden, true);
+  assert.equal(secondPlayerFromFirstSetupView.hand, null);
+  assert.equal(secondObserved.game.canAct.confirmDash, true);
   assert.equal(JSON.stringify(secondObserved.game).includes(firstToken), false);
   assert.equal(JSON.stringify(secondObserved.game).includes(secondToken), false);
 
@@ -189,8 +196,12 @@ test("two-player Socket.IO flow preserves identity and hides face-down values", 
     ).ok,
     true,
   );
-  assert.equal(firstObserved.game.status, ROOM_STATUS.PLAYING);
-  assert.equal(firstObserved.game.phase, TURN_PHASE.DRAW);
+  await waitFor(
+    () =>
+      firstObserved.game?.status === ROOM_STATUS.PLAYING &&
+      firstObserved.game?.phase === TURN_PHASE.DRAW,
+    "The fixed secret setup window did not end.",
+  );
 
   const handBeforeRefresh = ownPlayer(firstObserved.game).hand.map(
     (tile) => tile.id,
@@ -352,4 +363,47 @@ test("two-player Socket.IO flow preserves identity and hides face-down values", 
   });
   assert.equal(rejected.ok, false);
   assert.equal(rejected.error.code, "REJOIN_FAILED");
+});
+
+test("leaving a lobby removes the seat and transfers host control", async (t) => {
+  const gameServer = createGameServer();
+  const address = await gameServer.start(0);
+  const url = `http://127.0.0.1:${address.port}`;
+  const firstSocket = await connectClient(url);
+  const secondSocket = await connectClient(url);
+
+  t.after(async () => {
+    firstSocket.disconnect();
+    secondSocket.disconnect();
+    await gameServer.stop();
+  });
+
+  const created = await emitAck(firstSocket, "create_room", {
+    nickname: "Host",
+    playerToken: "leaving_host_token_0000000000",
+  });
+  const secondObserved = observeStates(secondSocket);
+  const joined = await emitAck(secondSocket, "join_room", {
+    roomCode: created.roomCode,
+    nickname: "Guest",
+    playerToken: "remaining_guest_token_0000000",
+  });
+  assert.equal(joined.ok, true);
+
+  const left = await emitAck(firstSocket, "leave_room");
+  assert.equal(left.ok, true);
+  await waitFor(
+    () =>
+      secondObserved.room?.players.length === 1 &&
+      secondObserved.room.players[0].id === joined.playerId &&
+      secondObserved.room.players[0].isHost,
+    "The remaining player did not become host.",
+  );
+
+  const replacementRoom = await emitAck(firstSocket, "create_room", {
+    nickname: "Host Again",
+    playerToken: "leaving_host_token_0000000000",
+  });
+  assert.equal(replacementRoom.ok, true);
+  assert.match(replacementRoom.roomCode, /^\d{4}$/);
 });

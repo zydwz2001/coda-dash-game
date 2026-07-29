@@ -22,6 +22,7 @@ const DASH = "-";
 const MAX_PLAYERS = 4;
 const MIN_PLAYERS = 2;
 const MAX_LOGS = 100;
+const SETUP_DURATION_MS = 10_000;
 
 class GameError extends Error {
   constructor(code, message) {
@@ -178,6 +179,7 @@ function createRoom({ roomCode, player }) {
       white: [],
     },
     currentTurnIndex: null,
+    lastTurnPlayerId: null,
     turnPhase: null,
     turn: {
       drawnTile: null,
@@ -185,6 +187,7 @@ function createRoom({ roomCode, player }) {
       lastGuessCorrect: false,
     },
     winnerPlayerId: null,
+    setupEndsAt: null,
     logs: [],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -226,7 +229,11 @@ function resetTurn(room) {
   };
 }
 
-function startGameForRoom(room, deckFactory = () => shuffle(createDeck())) {
+function startGameForRoom(
+  room,
+  deckFactory = () => shuffle(createDeck()),
+  setupDurationMs = SETUP_DURATION_MS,
+) {
   assertGame(
     room.status === ROOM_STATUS.LOBBY,
     "INVALID_ROOM_STATE",
@@ -262,7 +269,7 @@ function startGameForRoom(room, deckFactory = () => shuffle(createDeck())) {
     player.hand = [];
     player.isEliminated = false;
     player.needsDashSetup = false;
-    player.hasSetupDash = true;
+    player.hasSetupDash = false;
   }
 
   // Round-robin dealing avoids giving one seat a contiguous block from the deck.
@@ -275,7 +282,7 @@ function startGameForRoom(room, deckFactory = () => shuffle(createDeck())) {
   for (const player of room.players) {
     player.hand = sortInitialHand(player.hand);
     player.needsDashSetup = player.hand.some((tile) => tile.value === DASH);
-    player.hasSetupDash = !player.needsDashSetup;
+    player.hasSetupDash = false;
   }
 
   room.drawPiles.black = shuffle(
@@ -285,18 +292,14 @@ function startGameForRoom(room, deckFactory = () => shuffle(createDeck())) {
     deck.filter((tile) => tile.color === "white"),
   );
   room.currentTurnIndex = 0;
+  room.lastTurnPlayerId = null;
   room.winnerPlayerId = null;
   resetTurn(room);
 
-  if (room.players.some((player) => player.needsDashSetup)) {
-    room.status = ROOM_STATUS.SETUP_DASH;
-    room.turnPhase = null;
-    addLog(room, "Initial hands were dealt. Waiting for Dash placement.");
-  } else {
-    room.status = ROOM_STATUS.PLAYING;
-    room.turnPhase = TURN_PHASE.DRAW;
-    addLog(room, `Game started. ${currentPlayer(room).nickname} takes the first turn.`);
-  }
+  room.status = ROOM_STATUS.SETUP_DASH;
+  room.turnPhase = null;
+  room.setupEndsAt = Date.now() + Math.max(0, setupDurationMs);
+  addLog(room, "Initial hands were dealt. Everyone is arranging privately.");
 }
 
 function confirmDashForPlayer(room, player, handOrder) {
@@ -304,11 +307,6 @@ function confirmDashForPlayer(room, player, handOrder) {
     room.status === ROOM_STATUS.SETUP_DASH,
     "INVALID_ROOM_STATE",
     "The room is not in the initial Dash setup phase.",
-  );
-  assertGame(
-    player.needsDashSetup,
-    "DASH_SETUP_NOT_REQUIRED",
-    "This player does not have an initial Dash tile.",
   );
   assertGame(
     !player.hasSetupDash,
@@ -348,16 +346,24 @@ function confirmDashForPlayer(room, player, handOrder) {
 
   player.hand = reorderedHand;
   player.hasSetupDash = true;
-  addLog(room, `${player.nickname} finished arranging their initial hand.`);
+}
 
-  const allDashPlayersReady = room.players.every(
-    (candidate) => !candidate.needsDashSetup || candidate.hasSetupDash,
+function finishInitialSetup(room) {
+  assertGame(
+    room.status === ROOM_STATUS.SETUP_DASH,
+    "INVALID_ROOM_STATE",
+    "The room is not in the initial setup phase.",
   );
-  if (allDashPlayersReady) {
-    room.status = ROOM_STATUS.PLAYING;
-    room.turnPhase = TURN_PHASE.DRAW;
-    addLog(room, `All Dash placements are complete. ${currentPlayer(room).nickname} goes first.`);
+  for (const player of room.players) {
+    player.hasSetupDash = true;
   }
+  room.status = ROOM_STATUS.PLAYING;
+  room.turnPhase = TURN_PHASE.DRAW;
+  room.setupEndsAt = null;
+  addLog(
+    room,
+    `Secret setup time ended. ${currentPlayer(room).nickname} takes the first turn.`,
+  );
 }
 
 function ensureCurrentActor(room, player) {
@@ -513,16 +519,21 @@ function advanceTurn(room) {
     return;
   }
 
+  const completedPlayer = currentPlayer(room);
   const playerCount = room.players.length;
   for (let offset = 1; offset <= playerCount; offset += 1) {
     const candidateIndex = (room.currentTurnIndex + offset) % playerCount;
     if (!room.players[candidateIndex].isEliminated) {
+      room.lastTurnPlayerId = completedPlayer.id;
       room.currentTurnIndex = candidateIndex;
       resetTurn(room);
       room.turnPhase = allDrawPilesEmpty(room)
         ? TURN_PHASE.GUESS
         : TURN_PHASE.DRAW;
-      addLog(room, `It is now ${room.players[candidateIndex].nickname}'s turn.`);
+      addLog(
+        room,
+        `${completedPlayer.nickname}'s turn ended. It is now ${room.players[candidateIndex].nickname}'s turn.`,
+      );
       return;
     }
   }
@@ -635,8 +646,7 @@ function serializeTileForOpponent(tile) {
 function shouldMaskEntireHand(room, targetPlayer, viewerPlayer) {
   return (
     room.status === ROOM_STATUS.SETUP_DASH &&
-    targetPlayer.id !== viewerPlayer.id &&
-    targetPlayer.needsDashSetup
+    targetPlayer.id !== viewerPlayer.id
   );
 }
 
@@ -649,16 +659,12 @@ function serializePlayerForViewer(room, targetPlayer, viewerPlayer) {
     isHost: targetPlayer.isHost,
     isConnected: targetPlayer.isConnected,
     isEliminated: targetPlayer.isEliminated,
-    isCurrentTurn: currentPlayer(room)?.id === targetPlayer.id,
+    isCurrentTurn:
+      room.status !== ROOM_STATUS.SETUP_DASH &&
+      currentPlayer(room)?.id === targetPlayer.id,
     isSelf,
     handHidden,
   };
-
-  if (room.status === ROOM_STATUS.SETUP_DASH) {
-    serialized.isArrangingDash =
-      targetPlayer.needsDashSetup && !targetPlayer.hasSetupDash;
-    serialized.hasSetupDash = targetPlayer.hasSetupDash;
-  }
 
   // null is deliberate: unlike an array of card backs, it leaks no hand count.
   if (handHidden) {
@@ -745,8 +751,11 @@ function serializeGameState(room, viewerPlayer) {
         ? ROOM_STATUS.SETUP_DASH
         : viewerPhase,
     selfPlayerId: viewerPlayer.id,
-    currentTurnPlayerId: actor?.id || null,
+    currentTurnPlayerId:
+      room.status === ROOM_STATUS.SETUP_DASH ? null : actor?.id || null,
+    lastTurnPlayerId: room.lastTurnPlayerId,
     winnerPlayerId: room.winnerPlayerId,
+    setupEndsAt: room.setupEndsAt,
     drawPileCounts: {
       black: room.drawPiles.black.length,
       white: room.drawPiles.white.length,
@@ -758,7 +767,6 @@ function serializeGameState(room, viewerPlayer) {
     canAct: {
       confirmDash:
         room.status === ROOM_STATUS.SETUP_DASH &&
-        viewerPlayer.needsDashSetup &&
         !viewerPlayer.hasSetupDash,
       draw:
         room.status === ROOM_STATUS.PLAYING &&
@@ -793,6 +801,10 @@ function createGameServer(options = {}) {
   const SocketIOServer =
     options.SocketIOServer || require("socket.io").Server;
   const rooms = options.rooms || new Map();
+  const setupDurationMs = Number.isFinite(options.setupDurationMs)
+    ? Math.max(0, options.setupDurationMs)
+    : SETUP_DURATION_MS;
+  const setupTimers = new Map();
   const app = express();
   const httpServer = http.createServer(app);
   const configuredOrigins =
@@ -865,6 +877,26 @@ function createGameServer(options = {}) {
         playerSocket.emit("game_state", serializeGameState(room, player));
       }
     }
+  }
+
+  function scheduleInitialSetupEnd(room) {
+    const existingTimer = setupTimers.get(room.roomCode);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+    const delay = Math.max(0, room.setupEndsAt - Date.now());
+    const timer = setTimeout(() => {
+      setupTimers.delete(room.roomCode);
+      if (
+        rooms.get(room.roomCode) !== room ||
+        room.status !== ROOM_STATUS.SETUP_DASH
+      ) {
+        return;
+      }
+      finishInitialSetup(room);
+      emitAllStates(room);
+    }, delay);
+    setupTimers.set(room.roomCode, timer);
   }
 
   function assertUnattached(socket) {
@@ -1061,11 +1093,39 @@ function createGameServer(options = {}) {
       emitAllStates(room);
     });
 
+    registerEvent(socket, "leave_room", async () => {
+      const { room, player } = actorContext(socket);
+      assertGame(
+        room.status === ROOM_STATUS.LOBBY,
+        "GAME_ALREADY_STARTED",
+        "The room can only be left before the game starts.",
+      );
+
+      room.players = room.players.filter((candidate) => candidate.id !== player.id);
+      socket.data.roomCode = null;
+      socket.data.playerId = null;
+      await socket.leave(room.roomCode);
+
+      if (room.players.length === 0) {
+        rooms.delete(room.roomCode);
+      } else {
+        if (player.isHost) {
+          room.players.forEach((candidate, index) => {
+            candidate.isHost = index === 0;
+          });
+        }
+        room.updatedAt = Date.now();
+        emitAllStates(room);
+      }
+      return { roomCode: room.roomCode };
+    });
+
     registerEvent(socket, "start_game", () => {
       const { room, player } = actorContext(socket);
       assertGame(player.isHost, "HOST_ONLY", "Only the host can start the game.");
-      startGameForRoom(room, options.deckFactory);
+      startGameForRoom(room, options.deckFactory, setupDurationMs);
       emitAllStates(room);
+      scheduleInitialSetupEnd(room);
     });
 
     registerEvent(socket, "confirm_dash_position", (payload) => {
@@ -1136,6 +1196,10 @@ function createGameServer(options = {}) {
       });
     },
     stop() {
+      for (const timer of setupTimers.values()) {
+        clearTimeout(timer);
+      }
+      setupTimers.clear();
       return new Promise((resolve, reject) => {
         io.close(() => {
           if (!httpServer.listening) {
@@ -1172,6 +1236,7 @@ module.exports = {
     insertNumericTile,
     startGameForRoom,
     confirmDashForPlayer,
+    finishInitialSetup,
     drawForPlayer,
     placeDrawnDashForPlayer,
     guessForPlayer,

@@ -110,6 +110,32 @@
     @apply flex w-3 shrink-0 select-none items-center justify-center font-mono text-base font-black text-amber-500/75 sm:w-4 sm:text-lg;
   }
 
+  .draw-pile {
+    @apply relative z-0;
+    overflow: visible;
+  }
+
+  .draw-pile::before,
+  .draw-pile::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border: inherit;
+    border-radius: inherit;
+    background: inherit;
+  }
+
+  .draw-pile::before {
+    transform: translate(-4px, -4px);
+    opacity: 0.72;
+  }
+
+  .draw-pile::after {
+    transform: translate(-8px, -8px);
+    opacity: 0.38;
+  }
+
   .scrollbar-subtle {
     scrollbar-color: rgb(255 255 255 / 0.16) transparent;
     scrollbar-width: thin;

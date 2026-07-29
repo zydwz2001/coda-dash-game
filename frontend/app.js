@@ -329,9 +329,30 @@
     });
 
     state.socket.on("game_state", (gameState) => {
+      const previousGameState = state.gameState;
+      const previousTurnPlayerId = previousGameState?.currentTurnPlayerId;
+      const nextTurnPlayerId = gameState.currentTurnPlayerId;
       state.gameState = gameState;
       state.playerId = gameState.selfPlayerId;
       syncDashOrder();
+      if (
+        previousGameState?.status === "PLAYING" &&
+        gameState.status === "PLAYING" &&
+        previousTurnPlayerId &&
+        nextTurnPlayerId &&
+        previousTurnPlayerId !== nextTurnPlayerId
+      ) {
+        const previousPlayer = previousGameState.players.find(
+          (player) => player.id === previousTurnPlayerId,
+        );
+        const nextPlayer = gameState.players.find(
+          (player) => player.id === nextTurnPlayerId,
+        );
+        showToast(
+          `${previousPlayer?.nickname || "上一位玩家"}的回合结束 · 轮到${nextPlayer?.id === gameState.selfPlayerId ? "你" : nextPlayer?.nickname || "下一位玩家"}`,
+          "success",
+        );
+      }
       if (state.guessTarget) {
         const target = playerById(state.guessTarget.playerId);
         const tile = target?.hand?.find(
@@ -381,8 +402,7 @@
     return `
       <div class="safe-bottom mx-auto flex min-h-[100dvh] w-full max-w-[1480px] flex-col px-3 sm:px-6 lg:px-8">
         <main class="flex flex-1 flex-col py-4 sm:py-6">${content}</main>
-        <footer class="flex flex-col items-center justify-between gap-2 border-t border-white/8 py-4 text-center text-[0.68rem] text-white/25 sm:flex-row sm:text-left sm:text-xs">
-          <span>黑白 0–11 · Dash × 2 · 2–4 位玩家 · 刷新自动恢复</span>
+        <footer class="flex justify-center py-4 sm:justify-end">
           ${connectionBadge()}
         </footer>
       </div>
@@ -431,12 +451,9 @@
         </section>
 
         <section class="panel mx-auto w-full max-w-xl p-4 sm:p-7">
-          <div class="mb-6 flex items-start justify-between gap-4">
-            <div>
-              <p class="eyebrow">ENTER THE TABLE</p>
-              <h2 class="mt-2 text-xl font-black tracking-tight sm:text-2xl">开始一局推理</h2>
-            </div>
-            <span class="whitespace-nowrap rounded-full bg-lime-300/10 px-2.5 py-1.5 text-[0.65rem] font-bold text-lime-300 sm:px-3 sm:text-xs">无需登录</span>
+          <div class="mb-6">
+            <p class="eyebrow">ENTER THE TABLE</p>
+            <h2 class="mt-2 text-xl font-black tracking-tight sm:text-2xl">开始一局推理</h2>
           </div>
 
           <label class="mb-2 block text-xs font-bold text-white/55" for="nickname">你的昵称</label>
@@ -472,7 +489,7 @@
               pattern="[0-9]{4}"
               autocomplete="off"
               value="${escapeHtml(roomPrefill)}"
-              placeholder="4 位数字"
+              placeholder="请输入房间号"
             />
             <button class="btn-secondary shrink-0 px-5 sm:px-6" ${state.connected ? "" : "disabled"}>加入</button>
           </form>
@@ -530,18 +547,26 @@
       players.length >= 2 &&
       players.every((player) => player.isReady && player.isConnected);
     const busy = state.busyActions.size > 0;
+    const waitingMessage =
+      players.length < 2
+        ? "还需要 1 位玩家或等待其他人加入。"
+        : allReady
+          ? "全员就绪，可以开始。"
+          : "";
     return `
       <div class="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center py-2 sm:py-6">
         <div class="mb-5 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between sm:gap-5">
           <div>
-            <p class="eyebrow">PRIVATE TABLE</p>
-            <div class="mt-2 flex flex-wrap items-center gap-3">
+            <div class="flex flex-wrap items-center gap-3">
               <h1 class="text-3xl font-black tracking-[-0.055em] sm:text-5xl">等待玩家</h1>
               <span class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 font-mono text-base font-black tracking-[0.2em] sm:rounded-2xl sm:text-lg">${escapeHtml(state.roomCode)}</span>
             </div>
             <p class="mt-3 text-sm text-white/40">2–4 人 · 全员准备后由房主开始</p>
           </div>
-          <button type="button" data-action="copy-room" class="btn-secondary w-full sm:w-auto">复制邀请链接</button>
+          <div class="grid grid-cols-2 gap-2 sm:flex">
+            <button type="button" data-action="leave-room" class="btn-secondary">退出房间</button>
+            <button type="button" data-action="copy-room" class="btn-secondary">复制邀请链接</button>
+          </div>
         </div>
 
         <div class="grid grid-cols-2 gap-2.5 sm:gap-4">
@@ -549,13 +574,7 @@
         </div>
 
         <div class="panel sticky bottom-2 z-20 mt-4 flex flex-col gap-3 p-3.5 sm:static sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-5">
-          <div class="text-sm text-white/45">
-            ${
-              allReady
-                ? `<span class="font-bold text-lime-300">全员就绪，可以开始。</span>`
-                : `还需要 ${Math.max(0, 2 - players.length)} 位玩家或等待其他人准备。`
-            }
-          </div>
+          <div class="min-h-5 text-sm ${allReady ? "font-bold text-lime-300" : "text-white/45"}">${waitingMessage}</div>
           <div class="flex gap-2 sm:gap-3">
             <button
               type="button"
@@ -661,6 +680,7 @@
     const orderedTiles = (state.dashOrder || [])
       .map((tileId) => self?.hand?.find((tile) => tile.id === tileId))
       .filter(Boolean);
+    const dashTiles = orderedTiles.filter((tile) => tile.value === DASH);
     const opponents = state.gameState.players.filter((player) => !player.isSelf);
     const opponentGridClass =
       opponents.length >= 3
@@ -668,14 +688,55 @@
         : opponents.length === 2
           ? "md:grid-cols-2"
           : "md:grid-cols-1";
+    const handMarkup = orderedTiles
+      .map(
+        (tile, index) => `
+          ${tileMarkup(tile, { isSelf: true })}
+          ${index < orderedTiles.length - 1 ? `<span class="tile-relation" aria-hidden="true">&lt;</span>` : ""}
+        `,
+      )
+      .join("");
+    const dashPositionControls = dashTiles
+      .map((tile, dashIndex) => {
+        const currentIndex = orderedTiles.findIndex(
+          (candidate) => candidate.id === tile.id,
+        );
+        return `
+          <div class="rounded-2xl border border-amber-900/35 bg-stone-950/55 p-3">
+            <p class="mb-2 text-xs font-bold text-stone-400">${dashTiles.length > 1 ? `Dash ${dashIndex + 1}` : "Dash"} 放在第几位？</p>
+            <div class="grid grid-cols-4 gap-2 sm:flex sm:flex-wrap">
+              ${Array.from(
+                { length: orderedTiles.length },
+                (_, index) => `
+                  <button
+                    type="button"
+                    data-action="set-setup-dash-position"
+                    data-tile-id="${tile.id}"
+                    data-index="${index}"
+                    class="${currentIndex === index ? "border-amber-500 bg-amber-500 text-stone-950" : "border-stone-700 bg-stone-800 text-stone-300"} min-h-10 rounded-xl border px-3 text-xs font-black transition active:scale-95"
+                  >
+                    第 ${index + 1} 位
+                  </button>
+                `,
+              ).join("")}
+            </div>
+          </div>
+        `;
+      })
+      .join("");
     return `
       <div class="mx-auto w-full max-w-7xl py-1 sm:py-3">
         <div class="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
           <div>
-            <p class="eyebrow">SETUP / DASH</p>
-            <h1 class="mt-2 text-2xl font-black tracking-tight sm:text-4xl">安排你的伪装牌</h1>
+            <p class="eyebrow">SECRET SETUP</p>
+            <h1 class="mt-2 text-2xl font-black tracking-tight sm:text-4xl">全员秘密准备</h1>
+            <p class="mt-2 max-w-2xl text-sm leading-6 text-stone-500">所有玩家使用相同的固定准备时间，对手的颜色、张数和完成状态全部隐藏。</p>
           </div>
-          <span class="self-start rounded-full border border-white/10 px-3 py-2 text-[0.68rem] font-bold text-white/45 sm:self-auto sm:text-xs">正式回合尚未开始</span>
+          <span
+            data-setup-countdown
+            data-setup-ends-at="${state.gameState.setupEndsAt || 0}"
+            class="self-start rounded-full border border-amber-800/45 bg-amber-950/25 px-3 py-2 text-[0.68rem] font-black text-amber-300 sm:self-auto sm:text-xs"
+          >统一开局倒计时</span>
         </div>
 
         <div class="scrollbar-subtle -mx-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-3 pb-1 sm:-mx-6 sm:px-6 md:mx-0 md:grid md:px-0 ${opponentGridClass}">
@@ -689,36 +750,15 @@
                 <div class="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <p class="eyebrow">YOUR PRIVATE HAND</p>
-                    <h2 class="mt-2 text-xl font-black">用箭头把 Dash 移到任意位置</h2>
-                    <p class="mt-2 text-sm text-white/40">数字牌的升序不会改变；提交前只有你能看到这些牌。</p>
+                    <h2 class="mt-2 text-xl font-black">${dashTiles.length ? "一键选择 Dash 的位置" : "检查你的初始手牌"}</h2>
+                    <p class="mt-2 text-sm text-white/40">${dashTiles.length ? "点击目标位置即可移动，不需要逐格调整。" : "你的手牌无需调整；其他人看不到你是否持有 Dash。"}</p>
                   </div>
-                  <button type="button" data-action="confirm-dash" class="btn-primary w-full shrink-0 sm:w-auto">确认牌序</button>
+                  <button type="button" data-action="confirm-dash" class="btn-primary w-full shrink-0 sm:w-auto">完成秘密准备</button>
                 </div>
-                <div class="scrollbar-subtle -mx-1 mt-4 flex items-start overflow-x-auto px-1 py-2 sm:mt-5">
-                  ${orderedTiles
-                    .map((tile, index) => {
-                      const isDash = tile.value === DASH;
-                      return `
-                        <div class="flex shrink-0 items-start">
-                          <div class="flex flex-col items-center gap-2">
-                            ${tileMarkup(tile, { isSelf: true })}
-                            ${
-                              isDash
-                                ? `
-                                  <div class="flex gap-1">
-                                    <button type="button" data-action="move-dash" data-tile-id="${tile.id}" data-direction="-1" class="h-10 w-10 rounded-xl bg-white/8 text-sm font-black hover:bg-white/15 disabled:opacity-25" ${index === 0 ? "disabled" : ""}>←</button>
-                                    <button type="button" data-action="move-dash" data-tile-id="${tile.id}" data-direction="1" class="h-10 w-10 rounded-xl bg-white/8 text-sm font-black hover:bg-white/15 disabled:opacity-25" ${index === orderedTiles.length - 1 ? "disabled" : ""}>→</button>
-                                  </div>
-                                `
-                                : `<span class="h-10 pt-2 text-[0.6rem] font-bold text-white/20">LOCKED</span>`
-                            }
-                          </div>
-                          ${index < orderedTiles.length - 1 ? `<span class="tile-relation h-[5.4rem] sm:h-28" aria-hidden="true">&lt;</span>` : ""}
-                        </div>
-                      `;
-                    })
-                    .join("")}
+                <div class="scrollbar-subtle -mx-1 mt-4 flex items-center overflow-x-auto px-1 py-2 sm:mt-5">
+                  ${handMarkup}
                 </div>
+                ${dashTiles.length ? `<div class="mt-4 space-y-3">${dashPositionControls}</div>` : ""}
               `
               : `
                 <div class="flex min-h-44 flex-col items-center justify-center text-center">
@@ -727,8 +767,8 @@
                     <span class="h-2.5 w-2.5 animate-bounce rounded-full bg-coral-500 [animation-delay:-0.1s]"></span>
                     <span class="h-2.5 w-2.5 animate-bounce rounded-full bg-coral-500"></span>
                   </div>
-                  <h2 class="text-xl font-black">${self?.hasSetupDash ? "你的牌序已提交" : "等待 Dash 玩家摆放手牌"}</h2>
-                  <p class="mt-2 text-sm text-white/38">全员完成后会自动进入第一回合。</p>
+                  <h2 class="text-xl font-black">秘密准备已提交</h2>
+                  <p class="mt-2 text-sm text-white/38">倒计时结束后统一进入第一回合，不显示其他人的进度。</p>
                 </div>
               `
           }
@@ -761,6 +801,7 @@
     const game = state.gameState;
     const self = selfGamePlayer();
     const actor = playerById(game.currentTurnPlayerId);
+    const lastActor = playerById(game.lastTurnPlayerId);
     const isMyTurn = actor?.id === self?.id;
     const turnDraw = game.turnDraw;
     const counts = game.drawPileCounts;
@@ -780,25 +821,38 @@
     if (game.phase === "DRAW") {
       actionContent = isMyTurn
         ? `
-          <div>
-            <p class="mb-3 text-[0.65rem] font-semibold text-amber-300/75">牌面数字 = 牌库剩余张数</p>
-            <div class="flex justify-center gap-8">
-            <button type="button" data-action="draw-tile" data-color="black" class="group flex flex-col items-center gap-1.5 transition active:scale-95 disabled:opacity-30" ${counts.black ? "" : "disabled"}>
-              <span class="tile tile-black !h-16 !w-12 !rounded-lg">
-                <span class="text-[0.48rem] font-black opacity-40">CODA</span>
-                <span class="text-lg font-black">${counts.black}</span>
-                <span class="h-0.5 w-2 rounded bg-zinc-600"></span>
-              </span>
-              <span class="text-xs font-bold text-stone-300 group-hover:text-amber-300">摸黑牌</span>
-            </button>
-            <button type="button" data-action="draw-tile" data-color="white" class="group flex flex-col items-center gap-1.5 transition active:scale-95 disabled:opacity-30" ${counts.white ? "" : "disabled"}>
-              <span class="tile tile-white !h-16 !w-12 !rounded-lg">
-                <span class="text-[0.48rem] font-black opacity-40">CODA</span>
-                <span class="text-lg font-black">${counts.white}</span>
-                <span class="h-0.5 w-2 rounded bg-slate-300"></span>
-              </span>
-              <span class="text-xs font-bold text-stone-300 group-hover:text-amber-300">摸白牌</span>
-            </button>
+          <div class="pt-2">
+            <div class="flex justify-center gap-10">
+              <button
+                type="button"
+                data-action="draw-tile"
+                data-color="black"
+                aria-label="摸黑牌，剩余 ${counts.black} 张"
+                class="group flex flex-col items-center gap-2 transition active:scale-95 disabled:opacity-30"
+                ${counts.black ? "" : "disabled"}
+              >
+                <span class="draw-pile tile tile-black !h-20 !w-14 !rounded-lg !px-1 !py-2">
+                  <span class="text-[0.45rem] font-black tracking-wider opacity-45">剩余张数：</span>
+                  <span class="text-2xl font-black">${counts.black}</span>
+                  <span class="text-[0.45rem] font-black opacity-35">BLACK</span>
+                </span>
+                <span class="text-xs font-black text-stone-300 group-hover:text-amber-300">黑牌</span>
+              </button>
+              <button
+                type="button"
+                data-action="draw-tile"
+                data-color="white"
+                aria-label="摸白牌，剩余 ${counts.white} 张"
+                class="group flex flex-col items-center gap-2 transition active:scale-95 disabled:opacity-30"
+                ${counts.white ? "" : "disabled"}
+              >
+                <span class="draw-pile tile tile-white !h-20 !w-14 !rounded-lg !px-1 !py-2">
+                  <span class="text-[0.45rem] font-black tracking-wider opacity-45">剩余张数：</span>
+                  <span class="text-2xl font-black">${counts.white}</span>
+                  <span class="text-[0.45rem] font-black opacity-35">WHITE</span>
+                </span>
+                <span class="text-xs font-black text-stone-300 group-hover:text-amber-300">白牌</span>
+              </button>
             </div>
           </div>
         `
@@ -833,9 +887,10 @@
 
     return `
       <div class="w-full text-center">
-        <div class="mb-3 flex items-center justify-center gap-2 sm:mb-4">
-          <span class="eyebrow">${escapeHtml(formatPhase(game.phase))}</span>
-          ${isMyTurn ? `<span class="rounded-full border border-amber-700/50 bg-amber-950/60 px-2 py-1 text-[0.62rem] font-black text-amber-300">YOUR TURN</span>` : ""}
+        <div class="mx-auto mb-4 max-w-sm rounded-2xl border ${isMyTurn ? "border-amber-500/45 bg-amber-500/10 shadow-lg shadow-amber-950/20" : "border-stone-700/70 bg-stone-900/75"} px-4 py-3 sm:mb-5">
+          <p class="text-[0.62rem] font-black uppercase tracking-[0.2em] ${isMyTurn ? "text-amber-400" : "text-stone-500"}">CURRENT TURN · ${escapeHtml(formatPhase(game.phase))}</p>
+          <h2 class="mt-1 text-base font-black ${isMyTurn ? "text-amber-100" : "text-stone-200"}">${isMyTurn ? "♛ 轮到你的回合！" : `轮到 ${escapeHtml(actor?.nickname || "当前玩家")} 的回合`}</h2>
+          ${lastActor ? `<p class="mt-1.5 text-[0.68rem] font-semibold text-stone-500">上一回合：${escapeHtml(lastActor.nickname)} 已结束</p>` : ""}
         </div>
         ${
           turnDraw
@@ -929,7 +984,7 @@
             <div class="mb-2 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 class="text-sm font-black text-amber-300 sm:text-base">${escapeHtml(self?.nickname || state.nickname)} <span class="text-stone-500">/ 你的手牌</span></h3>
-                <p class="mt-1 text-[0.68rem] text-stone-600 sm:text-xs">${self?.isEliminated ? "你已被淘汰，但仍可观战。" : "完整牌面只发送给你。"}</p>
+                ${self?.isEliminated ? `<p class="mt-1 text-[0.68rem] text-stone-600 sm:text-xs">你已被淘汰，但仍可观战。</p>` : ""}
               </div>
               <span class="rounded-full border border-stone-800 px-3 py-1.5 text-[0.62rem] font-bold text-stone-500">${self?.hand?.length || 0} 张</span>
             </div>
@@ -1009,6 +1064,15 @@
       content = renderGame();
     }
     app.innerHTML = renderShell(content);
+    updateSetupCountdown();
+  }
+
+  function updateSetupCountdown() {
+    for (const element of document.querySelectorAll("[data-setup-countdown]")) {
+      const endsAt = Number(element.dataset.setupEndsAt);
+      const seconds = Math.max(0, Math.ceil((endsAt - Date.now()) / 1_000));
+      element.textContent = `统一开局倒计时 ${seconds}s`;
+    }
   }
 
   async function createRoom() {
@@ -1108,6 +1172,13 @@
     ) {
       state.showSettings = false;
       render();
+    } else if (action === "leave-room") {
+      const response = await runAction("leave_room");
+      if (response) {
+        forgetRoom();
+        render();
+        showToast("已退出房间。", "success");
+      }
     } else if (action === "copy-room") {
       const url = new URL(window.location.href);
       url.searchParams.set("room", state.roomCode);
@@ -1125,6 +1196,22 @@
       await runAction("set_ready", { isReady: !self?.isReady });
     } else if (action === "start-game") {
       await runAction("start_game");
+    } else if (action === "set-setup-dash-position") {
+      const tileId = trigger.dataset.tileId;
+      const targetIndex = Number(trigger.dataset.index);
+      const nextOrder = [...state.dashOrder];
+      const fromIndex = nextOrder.indexOf(tileId);
+      if (
+        fromIndex >= 0 &&
+        Number.isInteger(targetIndex) &&
+        targetIndex >= 0 &&
+        targetIndex < nextOrder.length
+      ) {
+        nextOrder.splice(fromIndex, 1);
+        nextOrder.splice(targetIndex, 0, tileId);
+        state.dashOrder = nextOrder;
+        render();
+      }
     } else if (action === "move-dash") {
       const tileId = trigger.dataset.tileId;
       const direction = Number(trigger.dataset.direction);
@@ -1143,7 +1230,7 @@
       await runAction(
         "confirm_dash_position",
         { handOrder: state.dashOrder },
-        { successMessage: "牌序已提交。" },
+        { successMessage: "秘密准备已提交。" },
       );
     } else if (action === "draw-tile") {
       await runAction("draw_tile", { color: trigger.dataset.color });
@@ -1184,6 +1271,7 @@
     }
   });
 
+  window.setInterval(updateSetupCountdown, 250);
   render();
   connect();
 })();

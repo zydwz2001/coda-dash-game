@@ -37,6 +37,12 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
   await secondPage.getByRole("button", { name: "加入" }).click();
 
   await expect(firstPage.getByText("Turing")).toBeVisible();
+  await expect(
+    firstPage.getByText(/还需要 \d+ 位玩家或等待其他人/),
+  ).toHaveCount(0);
+  await expect(
+    secondPage.getByText(/还需要 \d+ 位玩家或等待其他人/),
+  ).toHaveCount(0);
   await firstPage.getByRole("button", { name: "我准备好了" }).click();
   await secondPage.getByRole("button", { name: "我准备好了" }).click();
   await expect(
@@ -45,24 +51,32 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
   await firstPage.getByRole("button", { name: "开始游戏" }).click();
 
   await expect(
-    firstPage.getByRole("heading", { name: "安排你的伪装牌" }),
+    firstPage.getByRole("heading", { name: "全员秘密准备" }),
   ).toBeVisible();
   await expect(secondPage.getByText(/颜色与张数已隐藏/)).toBeVisible();
+  await expect(firstPage.getByText(/颜色与张数已隐藏/)).toBeVisible();
+  await expect(secondPage.getByText(/检查你的初始手牌/)).toBeVisible();
   await expect(
     secondPage.locator('[data-action="open-guess"]'),
   ).toHaveCount(0);
   await expect(firstPage.locator(".tile-relation").first()).toHaveText("<");
 
-  const moveDashLeft = firstPage.locator(
-    '[data-action="move-dash"][data-direction="-1"]',
+  const chooseSecondPosition = firstPage.locator(
+    '[data-action="set-setup-dash-position"][data-index="1"]',
   );
-  await expect(moveDashLeft).toBeEnabled();
-  await moveDashLeft.click();
-  await firstPage.getByRole("button", { name: "确认牌序" }).click();
+  await expect(chooseSecondPosition).toBeEnabled();
+  await chooseSecondPosition.click();
+  await firstPage.getByRole("button", { name: "完成秘密准备" }).click();
 
   await expect(
     firstPage.getByRole("button", { name: /摸黑牌/ }),
   ).toBeVisible();
+  await expect(firstPage.getByText("剩余张数")).toHaveCount(2);
+  mkdirSync("artifacts", { recursive: true });
+  await firstPage.screenshot({
+    path: "artifacts/coda-draw-piles.png",
+    fullPage: true,
+  });
   await firstPage.getByRole("button", { name: /摸黑牌/ }).click();
   await expect(
     firstPage.getByText(/点击任意对手未翻开的牌/),
@@ -79,7 +93,11 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
     .click();
 
   await expect(firstPage.getByText("猜错了，本回合结束。")).toBeVisible();
-  await expect(secondPage.getByText("YOUR TURN")).toBeVisible();
+  await expect(secondPage.getByText("♛ 轮到你的回合！")).toBeVisible();
+  await expect(secondPage.getByText("上一回合：Ada 已结束")).toBeVisible();
+  await expect(
+    secondPage.getByText(/Ada的回合结束 · 轮到你/),
+  ).toBeVisible();
   await expect(
     secondPage.getByRole("complementary").getByText(/drawn tile was revealed as/),
   ).toBeVisible();
@@ -130,6 +148,9 @@ test("lobby stays usable at a phone viewport", async ({ page }) => {
   await expect(page.getByRole("button", { name: "已连接" })).toBeVisible();
   await expect(page.getByRole("button", { name: "创建新房间" })).toBeVisible();
   await expect(page.locator("#nickname")).toBeVisible();
+  await expect(page.getByPlaceholder("请输入房间号")).toBeVisible();
+  await expect(page.getByText("无需登录")).toHaveCount(0);
+  await expect(page.getByText(/黑白 0–11/)).toHaveCount(0);
 
   const viewportMetrics = await page.evaluate(() => ({
     viewportWidth: window.innerWidth,
@@ -144,4 +165,12 @@ test("lobby stays usable at a phone viewport", async ({ page }) => {
     path: "artifacts/coda-lobby-mobile.png",
     fullPage: true,
   });
+
+  await page.getByRole("button", { name: "创建新房间" }).click();
+  await expect(page).toHaveURL(/room=\d{4}/);
+  await expect(page.getByText("PRIVATE TABLE")).toHaveCount(0);
+  await expect(page.getByText(/还需要 1 位玩家/)).toBeVisible();
+  await page.getByRole("button", { name: "退出房间" }).click();
+  await expect(page.getByRole("button", { name: "创建新房间" })).toBeVisible();
+  await expect(page).not.toHaveURL(/room=\d{4}/);
 });

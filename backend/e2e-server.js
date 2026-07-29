@@ -33,6 +33,7 @@ function createDeterministicDeck() {
 const port = Number(process.env.E2E_BACKEND_PORT) || 3100;
 const server = createGameServer({
   deckFactory: createDeterministicDeck,
+  setupDurationMs: 1_500,
 });
 
 server.start(port).then(() => {
@@ -46,4 +47,3 @@ async function shutdown() {
 
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
-
