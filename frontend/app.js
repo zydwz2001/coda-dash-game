@@ -487,7 +487,7 @@
     return `
       <div class="grid flex-1 content-start gap-4 py-1 sm:items-center sm:gap-7 sm:py-7 lg:grid-cols-[1.08fr_0.92fr] lg:gap-14">
         <section class="mx-auto w-full max-w-3xl lg:mx-0">
-          <div class="mb-5 hidden items-center gap-3 sm:flex">
+          <div class="mb-5 hidden items-center gap-3 lg:flex">
             <p class="eyebrow">经典推理桌游</p>
             <span class="h-px flex-1 bg-gradient-to-r from-white/15 to-transparent"></span>
           </div>
@@ -495,10 +495,10 @@
             看见颜色，<br />
             <span class="bg-gradient-to-r from-white/24 to-white/8 bg-clip-text text-transparent">猜出密码。</span>
           </h1>
-          <p class="mt-5 hidden max-w-xl text-sm leading-6 text-white/52 sm:mt-7 sm:block sm:text-lg sm:leading-7">
+          <p class="mt-7 hidden max-w-xl text-lg leading-7 text-white/52 lg:block">
             牌面越沉默，信息越响亮。按序排列你的数字，把百搭牌藏在任意位置，然后逐张拆穿对手。
           </p>
-          <div class="mt-6 hidden max-w-xl grid-cols-3 gap-2 sm:mt-9 sm:grid sm:gap-3">
+          <div class="mt-9 hidden max-w-xl grid-cols-3 gap-3 lg:grid">
             ${[
               ["26", "张黑白密码牌"],
               ["2–4", "位推理玩家"],
