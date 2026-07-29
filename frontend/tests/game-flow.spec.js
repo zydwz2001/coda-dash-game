@@ -383,6 +383,43 @@ test("three-player phone layout shows both opponents without horizontal clipping
       path: "artifacts/coda-three-player-guess-mobile.png",
       fullPage: true,
     });
+    await host.locator('[data-action="close-guess"]').click();
+    await expect(
+      host.getByRole("button", { name: "退出游戏", exact: true }),
+    ).toBeVisible();
+    await host.getByRole("button", { name: "退出游戏", exact: true }).click();
+    await expect(
+      host.getByRole("heading", {
+        name: "游戏正在进行，是否确认退出？",
+      }),
+    ).toBeVisible();
+    await host.screenshot({
+      path: "artifacts/coda-leave-game-mobile.png",
+      fullPage: true,
+    });
+    await host.getByRole("button", { name: "取消", exact: true }).click();
+    await expect(host.getByText(/你的手牌/)).toBeVisible();
+
+    await host.getByRole("button", { name: "退出游戏", exact: true }).click();
+    await host.getByRole("button", { name: "确认退出", exact: true }).click();
+    await expect(
+      host.getByRole("button", { name: "创建新房间" }),
+    ).toBeVisible();
+    await expect(host.locator("#nickname")).toHaveValue("房主甲");
+    await expect(host.locator('[data-avatar-id="avatar-03"]')).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(host).not.toHaveURL(/room=\d{4}/);
+    expect(
+      await host.evaluate(() =>
+        window.localStorage.getItem("coda.roomCode"),
+      ),
+    ).toBeNull();
+    await expect(
+      second.getByText("轮到你的回合", { exact: true }),
+    ).toBeVisible();
+    await expect(second.getByText("已淘汰", { exact: true })).toBeVisible();
   } finally {
     await Promise.all(contexts.map((context) => context.close()));
   }

@@ -542,6 +542,7 @@ function finishIfWon(room) {
   }
   room.status = ROOM_STATUS.FINISHED;
   room.turnPhase = null;
+  room.setupEndsAt = null;
   room.winnerPlayerId = survivors[0]?.id || null;
   resetTurn(room);
   addLog(
@@ -605,6 +606,70 @@ function advanceTurn(room) {
       return;
     }
   }
+}
+
+function forfeitGameForPlayer(room, player) {
+  assertGame(
+    room.status === ROOM_STATUS.SETUP_DASH ||
+      room.status === ROOM_STATUS.PLAYING,
+    "INVALID_ROOM_STATE",
+    "只能在游戏进行中退出。",
+  );
+
+  const statusAtForfeit = room.status;
+  const wasCurrentPlayer = currentPlayer(room)?.id === player.id;
+  const wasAlreadyEliminated = player.isEliminated;
+
+  if (
+    !wasAlreadyEliminated &&
+    statusAtForfeit === ROOM_STATUS.PLAYING &&
+    wasCurrentPlayer &&
+    room.turn.drawnTile
+  ) {
+    const pendingTile = room.turn.drawnTile;
+    pendingTile.isRevealed = true;
+    if (pendingTile.value === DASH) {
+      player.hand.push(pendingTile);
+    } else {
+      insertNumericTile(player.hand, pendingTile);
+    }
+  }
+
+  if (wasCurrentPlayer) {
+    resetTurn(room);
+  }
+  for (const tile of player.hand) {
+    tile.isRevealed = true;
+  }
+  player.isEliminated = true;
+  player.isConnected = false;
+  player.needsDashSetup = false;
+  player.hasSetupDash = true;
+  addLog(
+    room,
+    wasAlreadyEliminated
+      ? `${player.nickname} 退出了观战。`
+      : `${player.nickname} 退出游戏，视为弃权。`,
+  );
+
+  const gameFinished = finishIfWon(room);
+  if (gameFinished || wasAlreadyEliminated || !wasCurrentPlayer) {
+    return { gameFinished };
+  }
+
+  if (statusAtForfeit === ROOM_STATUS.SETUP_DASH) {
+    for (let offset = 1; offset <= room.players.length; offset += 1) {
+      const candidateIndex =
+        (room.currentTurnIndex + offset) % room.players.length;
+      if (!room.players[candidateIndex].isEliminated) {
+        room.currentTurnIndex = candidateIndex;
+        break;
+      }
+    }
+  } else {
+    advanceTurn(room);
+  }
+  return { gameFinished: false };
 }
 
 function guessForPlayer(room, player, payload) {
@@ -1245,6 +1310,20 @@ function createGameServer(options = {}) {
       return { roomCode: room.roomCode };
     });
 
+    registerEvent(socket, "leave_game", async () => {
+      const { room, player } = actorContext(socket);
+      const result = forfeitGameForPlayer(room, player);
+      player.socketId = null;
+      socket.data.roomCode = null;
+      socket.data.playerId = null;
+      await socket.leave(room.roomCode);
+      emitAllStates(room);
+      return {
+        roomCode: room.roomCode,
+        ...result,
+      };
+    });
+
     registerEvent(socket, "return_to_home", async () => {
       const { room, player } = actorContext(socket);
       assertGame(
@@ -1392,6 +1471,7 @@ module.exports = {
     startGameForRoom,
     confirmDashForPlayer,
     finishInitialSetup,
+    forfeitGameForPlayer,
     drawForPlayer,
     placeDrawnDashForPlayer,
     guessForPlayer,

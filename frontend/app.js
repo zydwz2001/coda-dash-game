@@ -98,6 +98,7 @@
     kickTarget: null,
     guessFeedback: null,
     flashingTileIds: [],
+    showLeaveGameConfirm: false,
     showSettings: false,
     busyActions: new Set(),
     joinCode: (query.get("room") || "")
@@ -213,6 +214,7 @@
     state.kickTarget = null;
     state.guessFeedback = null;
     state.flashingTileIds = [];
+    state.showLeaveGameConfirm = false;
     storage.remove(STORAGE_KEYS.roomCode);
     setRoomInUrl("");
   }
@@ -441,6 +443,7 @@
       ${state.showSettings ? renderSettingsModal() : ""}
       ${state.guessTarget ? renderGuessModal() : ""}
       ${state.kickTarget ? renderKickModal() : ""}
+      ${state.showLeaveGameConfirm ? renderLeaveGameModal() : ""}
       ${state.guessFeedback ? renderGuessFeedback() : ""}
     `;
   }
@@ -749,6 +752,16 @@
     `;
   }
 
+  function renderLeaveGameButton() {
+    return `
+      <button
+        type="button"
+        data-action="open-leave-game"
+        class="inline-flex min-h-10 items-center justify-center rounded-xl border border-red-900/60 bg-red-950/35 px-3.5 text-xs font-black text-red-200/80 transition active:scale-[0.98]"
+      >退出游戏</button>
+    `;
+  }
+
   function renderSetupDash() {
     const self = selfGamePlayer();
     const orderedTiles = (state.dashOrder || [])
@@ -793,6 +806,9 @@
       .join("");
     return `
       <div class="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center py-3">
+        <div class="mb-3 flex justify-end">
+          ${renderLeaveGameButton()}
+        </div>
         <div class="mb-5 text-center sm:mb-7">
           <h1 class="text-3xl font-black tracking-tight sm:text-5xl">全员秘密准备</h1>
           <span
@@ -1029,6 +1045,11 @@
           ? "md:grid-cols-2"
           : "md:grid-cols-1";
     return `
+      ${
+        game.status === "PLAYING"
+          ? `<div class="mb-3 flex w-full justify-end">${renderLeaveGameButton()}</div>`
+          : ""
+      }
       <div class="grid w-full min-w-0 flex-1 gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div class="flex w-full min-w-0 flex-col gap-3 sm:gap-4">
           <div class="grid w-full min-w-0 grid-cols-1 gap-3 ${opponentGridClass}">
@@ -1136,6 +1157,22 @@
           <div class="mt-5 grid grid-cols-2 gap-3">
             <button type="button" data-action="close-kick" class="btn-secondary">取消</button>
             <button type="button" data-action="confirm-kick" data-player-id="${target.id}" class="btn min-h-11 rounded-xl border border-red-700/60 bg-red-950/70 font-black text-red-200 hover:bg-red-900/70">确认移出</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderLeaveGameModal() {
+    return `
+      <div class="fixed inset-0 z-[65] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" data-action="close-leave-game-backdrop">
+        <div class="panel w-full max-w-sm p-5 text-center" role="dialog" aria-modal="true" aria-labelledby="leave-game-title">
+          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-950 text-2xl font-black text-red-300">!</div>
+          <h2 id="leave-game-title" class="mt-4 text-xl font-black">游戏正在进行，是否确认退出？</h2>
+          <p class="mt-2 text-sm leading-6 text-stone-500">确认退出后将视为弃权，你的手牌会全部公开。</p>
+          <div class="mt-5 grid grid-cols-2 gap-3">
+            <button type="button" data-action="close-leave-game" class="btn-secondary">取消</button>
+            <button type="button" data-action="confirm-leave-game" class="btn min-h-11 rounded-xl border border-red-700/60 bg-red-950/70 font-black text-red-200 hover:bg-red-900/70">确认退出</button>
           </div>
         </div>
       </div>
@@ -1322,6 +1359,25 @@
         forgetRoom();
         render();
         showToast("已退出房间。", "success");
+      }
+    } else if (action === "open-leave-game") {
+      state.showLeaveGameConfirm = true;
+      render();
+    } else if (action === "close-leave-game") {
+      state.showLeaveGameConfirm = false;
+      render();
+    } else if (
+      action === "close-leave-game-backdrop" &&
+      event.target === trigger
+    ) {
+      state.showLeaveGameConfirm = false;
+      render();
+    } else if (action === "confirm-leave-game") {
+      const response = await runAction("leave_game");
+      if (response) {
+        forgetRoom();
+        render();
+        showToast("已退出游戏。", "success");
       }
     } else if (action === "refresh-room") {
       await runAction(

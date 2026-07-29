@@ -556,3 +556,103 @@ test("finished players can rematch or return home without losing profiles", asyn
   });
   assert.equal(newRoom.ok, true);
 });
+
+test("leaving an active game forfeits the hand and advances or finishes play", async (t) => {
+  const gameServer = createGameServer({
+    deckFactory: createDeterministicDeck,
+    setupDurationMs: 10,
+  });
+  const address = await gameServer.start(0);
+  const url = `http://127.0.0.1:${address.port}`;
+  const firstSocket = await connectClient(url);
+  const secondSocket = await connectClient(url);
+  const thirdSocket = await connectClient(url);
+  const clients = [firstSocket, secondSocket, thirdSocket];
+
+  t.after(async () => {
+    clients.forEach((client) => client.disconnect());
+    await gameServer.stop();
+  });
+
+  const secondObserved = observeStates(secondSocket);
+  const created = await emitAck(firstSocket, "create_room", {
+    nickname: "First",
+    avatarId: "avatar-01",
+    playerToken: "leave_game_first_token_00000",
+  });
+  const secondJoined = await emitAck(secondSocket, "join_room", {
+    roomCode: created.roomCode,
+    nickname: "Second",
+    avatarId: "avatar-02",
+    playerToken: "leave_game_second_token_0000",
+  });
+  const thirdJoined = await emitAck(thirdSocket, "join_room", {
+    roomCode: created.roomCode,
+    nickname: "Third",
+    avatarId: "avatar-03",
+    playerToken: "leave_game_third_token_00000",
+  });
+  assert.equal(secondJoined.ok, true);
+  assert.equal(thirdJoined.ok, true);
+
+  for (const socket of clients) {
+    assert.equal(
+      (await emitAck(socket, "set_ready", { isReady: true })).ok,
+      true,
+    );
+  }
+  assert.equal((await emitAck(firstSocket, "start_game")).ok, true);
+
+  const room = gameServer.rooms.get(created.roomCode);
+  await waitFor(
+    () => room.status === ROOM_STATUS.PLAYING,
+    "The three-player game did not leave setup.",
+  );
+  const firstPlayer = room.players.find(
+    (player) => player.id === created.playerId,
+  );
+  const initialHandSize = firstPlayer.hand.length;
+  const drawColor = room.drawPiles.black.length ? "black" : "white";
+  assert.equal(
+    (await emitAck(firstSocket, "draw_tile", { color: drawColor })).ok,
+    true,
+  );
+
+  const firstLeft = await emitAck(firstSocket, "leave_game");
+  assert.equal(firstLeft.ok, true);
+  assert.equal(firstLeft.gameFinished, false);
+  assert.equal(firstPlayer.isConnected, false);
+  assert.equal(firstPlayer.isEliminated, true);
+  assert.equal(firstPlayer.hand.length, initialHandSize + 1);
+  assert.equal(firstPlayer.hand.every((tile) => tile.isRevealed), true);
+  assert.equal(room.status, ROOM_STATUS.PLAYING);
+  assert.equal(
+    room.players[room.currentTurnIndex].id,
+    secondJoined.playerId,
+  );
+  await waitFor(
+    () =>
+      secondObserved.game?.currentTurnPlayerId === secondJoined.playerId &&
+      secondObserved.game?.players.find(
+        (player) => player.id === created.playerId,
+      )?.isEliminated,
+    "The remaining players did not receive the forfeit state.",
+  );
+
+  const replacementRoom = await emitAck(firstSocket, "create_room", {
+    nickname: "First",
+    avatarId: "avatar-04",
+    playerToken: "leave_game_first_token_00000",
+  });
+  assert.equal(replacementRoom.ok, true);
+
+  const thirdLeft = await emitAck(thirdSocket, "leave_game");
+  assert.equal(thirdLeft.ok, true);
+  assert.equal(thirdLeft.gameFinished, true);
+  assert.equal(room.status, ROOM_STATUS.FINISHED);
+  assert.equal(room.winnerPlayerId, secondJoined.playerId);
+  await waitFor(
+    () => secondObserved.game?.status === ROOM_STATUS.FINISHED,
+    "The winner did not receive the finished state.",
+  );
+});
