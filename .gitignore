@@ -1,0 +1,7 @@
+backend/node_modules/
+frontend/node_modules/
+frontend/artifacts/
+frontend/test-results/
+frontend/playwright-report/
+prd.docx
+原型图.json

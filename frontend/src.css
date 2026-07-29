@@ -1,0 +1,109 @@
+@import "tailwindcss";
+@source "./index.html";
+@source "./app.js";
+
+@theme {
+  --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --color-ink-950: #121212;
+  --color-ink-900: #1b1b1a;
+  --color-paper-50: #f8f5ed;
+  --color-paper-100: #eee9dd;
+  --color-coral-500: #f26b4b;
+  --color-coral-600: #d95335;
+  --color-lime-300: #cde86c;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 12% 12%, rgb(242 107 75 / 0.12), transparent 30rem),
+      radial-gradient(circle at 88% 82%, rgb(205 232 108 / 0.1), transparent 28rem),
+      #121212;
+  }
+
+  button,
+  input {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-[1.75rem] border border-white/10 bg-white/[0.055] shadow-2xl shadow-black/20 backdrop-blur;
+  }
+
+  .eyebrow {
+    @apply text-[0.68rem] font-bold uppercase tracking-[0.24em] text-white/45;
+  }
+
+  .input {
+    @apply w-full rounded-2xl border border-white/10 bg-black/25 px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-coral-500/70 focus:ring-4 focus:ring-coral-500/10;
+  }
+
+  .btn {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35;
+  }
+
+  .btn-primary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-coral-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-coral-500/20 transition hover:bg-coral-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35;
+  }
+
+  .btn-secondary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/8 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white/12 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35;
+  }
+
+  .btn-quiet {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold text-white/55 transition hover:bg-white/8 hover:text-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35;
+  }
+
+  .tile {
+    @apply relative flex h-24 w-14 shrink-0 select-none flex-col items-center justify-between overflow-hidden rounded-xl border px-1.5 py-2 shadow-xl transition sm:h-28 sm:w-16;
+  }
+
+  .tile-black {
+    @apply border-white/15 bg-neutral-950 text-white;
+  }
+
+  .tile-white {
+    @apply border-black/15 bg-stone-100 text-neutral-950;
+  }
+
+  .tile-hidden::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.16;
+    background-image:
+      linear-gradient(45deg, currentColor 25%, transparent 25%),
+      linear-gradient(-45deg, currentColor 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, currentColor 75%),
+      linear-gradient(-45deg, transparent 75%, currentColor 75%);
+    background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+    background-size: 12px 12px;
+  }
+
+  .tile-actionable {
+    @apply cursor-pointer ring-2 ring-lime-300/0 hover:-translate-y-1 hover:ring-lime-300/80;
+  }
+
+  .scrollbar-subtle {
+    scrollbar-color: rgb(255 255 255 / 0.16) transparent;
+    scrollbar-width: thin;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+}
+
+.toast-enter {
+  animation: toast-in 180ms ease-out;
+}
