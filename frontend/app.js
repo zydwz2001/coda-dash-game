@@ -486,7 +486,7 @@
     const roomPrefill = state.joinCode || query.get("room") || "";
     return `
       <div class="grid flex-1 content-center gap-5 py-3 sm:items-center sm:gap-7 sm:py-7 lg:grid-cols-[1.08fr_0.92fr] lg:gap-14">
-        <section class="mx-auto w-full max-w-3xl lg:mx-0">
+        <section class="relative mx-auto min-h-[9.75rem] w-full max-w-3xl lg:mx-0 lg:min-h-0">
           <div class="mb-5 hidden items-center gap-3 lg:flex">
             <p class="eyebrow">经典推理桌游</p>
             <span class="h-px flex-1 bg-gradient-to-r from-white/15 to-transparent"></span>
@@ -514,10 +514,12 @@
               )
               .join("")}
           </div>
-          <div class="mt-3 flex items-end justify-end gap-2 pr-1 sm:mt-7 sm:justify-start sm:gap-3 sm:pr-0" aria-hidden="true">
-            <div class="tile tile-black -rotate-6 opacity-55"><span class="text-[0.58rem] font-black opacity-40">黑</span><span class="text-3xl font-black">?</span><span class="text-[0.5rem] opacity-30"></span></div>
-            <div class="tile tile-white translate-y-2 rotate-3"><span class="text-[0.58rem] font-black opacity-40">白</span><span class="text-3xl font-black">—</span><span class="text-[0.5rem] opacity-30">百搭牌</span></div>
-            <p class="mb-1 max-w-[10.5rem] text-[0.65rem] leading-4 text-white/28 sm:mb-2 sm:max-w-[13rem] sm:text-xs sm:leading-5">两种颜色，一套顺序。<br />唯一的例外，就是最好的伪装。</p>
+          <div class="absolute right-1 top-4 flex w-[7.5rem] flex-col items-center gap-2 lg:static lg:mt-7 lg:w-auto lg:flex-row lg:items-end lg:justify-start lg:gap-3" aria-hidden="true">
+            <div class="flex items-end gap-1.5 lg:gap-3">
+              <div class="tile tile-black -rotate-6 opacity-55"><span class="text-[0.58rem] font-black opacity-40">黑</span><span class="text-3xl font-black">?</span><span class="text-[0.5rem] opacity-30"></span></div>
+              <div class="tile tile-white translate-y-2 rotate-3"><span class="text-[0.58rem] font-black opacity-40">白</span><span class="text-3xl font-black">—</span><span class="text-[0.5rem] opacity-30">百搭牌</span></div>
+            </div>
+            <p class="max-w-[7.5rem] text-[0.58rem] leading-3 text-white/28 lg:mb-2 lg:max-w-[13rem] lg:text-xs lg:leading-5">两种颜色，一套顺序。<br />唯一的例外，就是最好的伪装。</p>
           </div>
         </section>
 
