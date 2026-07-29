@@ -78,7 +78,7 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
   await expect(firstPage.getByText("猜错了，本回合结束。")).toBeVisible();
   await expect(secondPage.getByText("YOUR TURN")).toBeVisible();
   await expect(
-    secondPage.getByText(/drawn tile was revealed as/),
+    secondPage.getByRole("complementary").getByText(/drawn tile was revealed as/),
   ).toBeVisible();
 
   const tokenBeforeRefresh = await firstPage.evaluate(() =>
@@ -99,8 +99,46 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
     fullPage: true,
   });
 
+  await firstPage.setViewportSize({ width: 390, height: 844 });
+  await expect(firstPage.getByText(/你的手牌/)).toBeVisible();
+  await expect(firstPage.getByRole("button", { name: "已连接" })).toBeVisible();
+  const viewportMetrics = await firstPage.evaluate(() => ({
+    viewportWidth: window.innerWidth,
+    pageWidth: document.documentElement.scrollWidth,
+  }));
+  expect(viewportMetrics.pageWidth).toBeLessThanOrEqual(
+    viewportMetrics.viewportWidth,
+  );
+  await firstPage.screenshot({
+    path: "artifacts/coda-game-mobile.png",
+    fullPage: true,
+  });
+
   expect(browserErrors).toEqual([]);
   await firstContext.close();
   await secondContext.close();
 });
 
+test("lobby stays usable at a phone viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const backendQuery = encodeURIComponent("http://127.0.0.1:3100");
+  await page.goto(`/?server=${backendQuery}`);
+
+  await expect(page.getByRole("button", { name: "已连接" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "创建新房间" })).toBeVisible();
+  await expect(page.locator("#nickname")).toBeVisible();
+
+  const viewportMetrics = await page.evaluate(() => ({
+    viewportWidth: window.innerWidth,
+    pageWidth: document.documentElement.scrollWidth,
+  }));
+  expect(viewportMetrics.pageWidth).toBeLessThanOrEqual(
+    viewportMetrics.viewportWidth,
+  );
+
+  mkdirSync("artifacts", { recursive: true });
+  await page.screenshot({
+    path: "artifacts/coda-lobby-mobile.png",
+    fullPage: true,
+  });
+});

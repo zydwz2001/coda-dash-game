@@ -358,7 +358,7 @@
         ? "连接中"
         : "离线";
     const dotClass = state.connected
-      ? "bg-lime-300"
+      ? "bg-emerald-400"
       : state.connecting
         ? "bg-amber-300 animate-pulse"
         : "bg-red-400";
@@ -377,26 +377,29 @@
 
   function renderShell(content) {
     return `
-      <div class="mx-auto flex min-h-screen w-full max-w-[1480px] flex-col px-4 py-4 sm:px-6 lg:px-8">
-        <header class="flex items-center justify-between py-2">
-          <button type="button" data-action="brand-home" class="group text-left">
-            <div class="flex items-baseline gap-2">
-              <span class="text-xl font-black tracking-[-0.06em] text-white">CODE</span>
-              <span class="text-xs font-bold tracking-[0.18em] text-coral-500">/ 26</span>
+      <div class="safe-bottom mx-auto flex min-h-[100dvh] w-full max-w-[1480px] flex-col px-3 pt-3 sm:px-6 sm:pt-4 lg:px-8">
+        <header class="sticky top-2 z-40 flex items-center justify-between rounded-2xl border border-white/8 bg-ink-950/85 px-3 py-2.5 shadow-xl shadow-black/20 backdrop-blur-xl sm:top-3 sm:px-4">
+          <button type="button" data-action="brand-home" class="group flex items-center gap-2.5 text-left">
+            <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 text-[0.62rem] font-black tracking-tight text-amber-50 shadow-lg shadow-amber-950/30">密码</span>
+            <div>
+              <div class="flex items-baseline gap-2">
+                <span class="text-xs font-black tracking-wide text-amber-100 sm:text-sm">达芬奇密码</span>
+                <span class="hidden text-[0.55rem] font-bold tracking-[0.18em] text-amber-500 sm:inline">/ CODE 26</span>
+              </div>
+              <p class="mt-0.5 hidden font-mono text-[0.56rem] font-semibold tracking-[0.13em] text-amber-500/65 sm:block">${state.roomCode ? `ROOM: ${escapeHtml(state.roomCode)}` : "ROOM: ----"}</p>
             </div>
-            <p class="mt-0.5 text-[0.62rem] font-semibold tracking-[0.16em] text-white/35">THE DEDUCTION GAME</p>
           </button>
           <div class="flex items-center gap-2">
             ${
               state.roomCode
-                ? `<span class="hidden rounded-full border border-white/10 px-3 py-2 text-xs font-bold tracking-[0.16em] text-white/55 sm:inline">房间 ${escapeHtml(state.roomCode)}</span>`
+                ? `<span class="rounded-xl border border-white/10 bg-white/4 px-2.5 py-2 font-mono text-[0.68rem] font-black tracking-[0.16em] text-white/55 sm:px-3 sm:text-xs"># ${escapeHtml(state.roomCode)}</span>`
                 : ""
             }
             ${connectionBadge()}
           </div>
         </header>
-        <main class="flex flex-1 flex-col py-5">${content}</main>
-        <footer class="flex flex-wrap items-center justify-between gap-2 border-t border-white/8 py-5 text-xs text-white/30">
+        <main class="flex flex-1 flex-col py-4 sm:py-6">${content}</main>
+        <footer class="flex flex-col items-center justify-between gap-1 border-t border-white/8 py-4 text-center text-[0.68rem] text-white/25 sm:flex-row sm:gap-2 sm:text-left sm:text-xs">
           <span>黑白 0–11 · Dash × 2 · 2–4 位玩家</span>
           <span>刷新页面会自动恢复身份与手牌</span>
         </footer>
@@ -409,17 +412,20 @@
   function renderLobby() {
     const roomPrefill = state.joinCode || query.get("room") || "";
     return `
-      <div class="grid flex-1 items-center gap-8 py-6 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-        <section class="max-w-3xl">
-          <p class="eyebrow mb-5">A SOCIAL DEDUCTION CLASSIC</p>
-          <h1 class="max-w-3xl text-5xl font-black leading-[0.95] tracking-[-0.065em] text-white sm:text-7xl lg:text-[6.4rem]">
+      <div class="grid flex-1 items-center gap-7 py-4 sm:py-7 lg:grid-cols-[1.08fr_0.92fr] lg:gap-14">
+        <section class="mx-auto w-full max-w-3xl lg:mx-0">
+          <div class="mb-5 flex items-center gap-3">
+            <p class="eyebrow">A SOCIAL DEDUCTION CLASSIC</p>
+            <span class="h-px flex-1 bg-gradient-to-r from-white/15 to-transparent"></span>
+          </div>
+          <h1 class="max-w-3xl text-[2.85rem] font-black leading-[0.94] tracking-[-0.06em] text-white min-[430px]:text-6xl sm:text-7xl lg:text-[6.1rem]">
             看见颜色，<br />
-            <span class="text-white/25">猜出密码。</span>
+            <span class="bg-gradient-to-r from-white/24 to-white/8 bg-clip-text text-transparent">猜出密码。</span>
           </h1>
-          <p class="mt-7 max-w-xl text-base leading-7 text-white/52 sm:text-lg">
+          <p class="mt-5 max-w-xl text-sm leading-6 text-white/52 sm:mt-7 sm:text-lg sm:leading-7">
             牌面越沉默，信息越响亮。按序排列你的数字，把 Dash 藏在任意位置，然后逐张拆穿对手。
           </p>
-          <div class="mt-9 grid max-w-xl grid-cols-3 gap-3">
+          <div class="mt-6 grid max-w-xl grid-cols-3 gap-2 sm:mt-9 sm:gap-3">
             ${[
               ["26", "张黑白密码牌"],
               ["2–4", "位推理玩家"],
@@ -427,23 +433,28 @@
             ]
               .map(
                 ([value, label]) => `
-                  <div class="border-l border-white/12 pl-4">
-                    <div class="text-2xl font-black tracking-tight text-white">${value}</div>
-                    <div class="mt-1 text-xs text-white/35">${label}</div>
+                  <div class="border-l border-white/12 pl-3 sm:pl-4">
+                    <div class="text-xl font-black tracking-tight text-white sm:text-2xl">${value}</div>
+                    <div class="mt-1 text-[0.62rem] leading-4 text-white/35 sm:text-xs">${label}</div>
                   </div>
                 `,
               )
               .join("")}
           </div>
+          <div class="mt-7 hidden items-end gap-3 sm:flex" aria-hidden="true">
+            <div class="tile tile-black -rotate-6 opacity-55"><span class="text-[0.58rem] font-black opacity-40">B</span><span class="text-3xl font-black">?</span><span class="text-[0.5rem] opacity-30">CODE</span></div>
+            <div class="tile tile-white translate-y-2 rotate-3"><span class="text-[0.58rem] font-black opacity-40">W</span><span class="text-3xl font-black">—</span><span class="text-[0.5rem] opacity-30">DASH</span></div>
+            <p class="mb-2 max-w-[13rem] text-xs leading-5 text-white/28">两种颜色，一套顺序。<br />唯一的例外，就是最好的伪装。</p>
+          </div>
         </section>
 
-        <section class="panel mx-auto w-full max-w-xl p-5 sm:p-7">
+        <section class="panel mx-auto w-full max-w-xl p-4 sm:p-7">
           <div class="mb-6 flex items-start justify-between gap-4">
             <div>
               <p class="eyebrow">ENTER THE TABLE</p>
-              <h2 class="mt-2 text-2xl font-black tracking-tight">开始一局推理</h2>
+              <h2 class="mt-2 text-xl font-black tracking-tight sm:text-2xl">开始一局推理</h2>
             </div>
-            <span class="rounded-full bg-lime-300/10 px-3 py-1.5 text-xs font-bold text-lime-300">无需登录</span>
+            <span class="whitespace-nowrap rounded-full bg-lime-300/10 px-2.5 py-1.5 text-[0.65rem] font-bold text-lime-300 sm:px-3 sm:text-xs">无需登录</span>
           </div>
 
           <label class="mb-2 block text-xs font-bold text-white/55" for="nickname">你的昵称</label>
@@ -470,7 +481,7 @@
             <span class="h-px flex-1 bg-white/8"></span>
           </div>
 
-          <form data-form="join-room" class="flex gap-3">
+          <form data-form="join-room" class="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:gap-3">
             <input
               name="roomCode"
               class="input uppercase tracking-[0.24em]"
@@ -479,7 +490,7 @@
               value="${escapeHtml(roomPrefill)}"
               placeholder="房间码"
             />
-            <button class="btn-secondary shrink-0 px-6" ${state.connected ? "" : "disabled"}>加入</button>
+            <button class="btn-secondary shrink-0 px-5 sm:px-6" ${state.connected ? "" : "disabled"}>加入</button>
           </form>
 
           <div class="mt-6 rounded-2xl border border-white/8 bg-black/20 p-4 text-xs leading-5 text-white/38">
@@ -498,17 +509,17 @@
   function renderSeat(player, index) {
     if (!player) {
       return `
-        <div class="flex min-h-32 items-center justify-center rounded-3xl border border-dashed border-white/10 bg-white/[0.025] text-sm text-white/20">
+        <div class="flex min-h-28 items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.025] text-xs text-white/20 sm:min-h-32 sm:rounded-3xl sm:text-sm">
           空座位 ${index + 1}
         </div>
       `;
     }
     const isSelf = player.id === state.playerId;
     return `
-      <div class="rounded-3xl border ${isSelf ? "border-coral-500/35 bg-coral-500/[0.06]" : "border-white/10 bg-white/[0.04]"} p-5">
+      <div class="rounded-2xl border ${isSelf ? "border-coral-500/35 bg-coral-500/[0.06]" : "border-white/10 bg-white/[0.04]"} p-3.5 sm:rounded-3xl sm:p-5">
         <div class="flex items-start justify-between gap-3">
           <div class="flex min-w-0 items-center gap-3">
-            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${player.isConnected ? "bg-white/10" : "bg-white/5"} text-sm font-black">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${player.isConnected ? "bg-white/10" : "bg-white/5"} text-xs font-black sm:h-11 sm:w-11 sm:rounded-2xl sm:text-sm">
               ${escapeHtml(player.nickname.slice(0, 1).toUpperCase())}
             </div>
             <div class="min-w-0">
@@ -518,9 +529,9 @@
               </p>
             </div>
           </div>
-          ${player.isHost ? `<span class="rounded-full bg-white/8 px-2.5 py-1 text-[0.62rem] font-black tracking-wider text-white/45">HOST</span>` : ""}
+          ${player.isHost ? `<span class="rounded-full bg-white/8 px-2 py-1 text-[0.54rem] font-black tracking-wider text-white/45 sm:px-2.5 sm:text-[0.62rem]">HOST</span>` : ""}
         </div>
-        <div class="mt-5 flex items-center gap-2 text-xs font-bold">
+        <div class="mt-4 flex items-center gap-2 text-[0.68rem] font-bold sm:mt-5 sm:text-xs">
           <span class="h-2 w-2 rounded-full ${player.isReady ? "bg-lime-300" : "bg-white/20"}"></span>
           <span class="${player.isReady ? "text-lime-200/80" : "text-white/35"}">${player.isReady ? "已准备" : "未准备"}</span>
         </div>
@@ -536,24 +547,24 @@
       players.every((player) => player.isReady && player.isConnected);
     const busy = state.busyActions.size > 0;
     return `
-      <div class="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center py-6">
-        <div class="mb-8 flex flex-wrap items-end justify-between gap-5">
+      <div class="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center py-2 sm:py-6">
+        <div class="mb-5 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between sm:gap-5">
           <div>
             <p class="eyebrow">PRIVATE TABLE</p>
-            <div class="mt-2 flex items-center gap-3">
-              <h1 class="text-4xl font-black tracking-[-0.055em] sm:text-5xl">等待玩家</h1>
-              <span class="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 font-mono text-lg font-black tracking-[0.2em]">${escapeHtml(state.roomCode)}</span>
+            <div class="mt-2 flex flex-wrap items-center gap-3">
+              <h1 class="text-3xl font-black tracking-[-0.055em] sm:text-5xl">等待玩家</h1>
+              <span class="rounded-xl border border-white/10 bg-white/5 px-3 py-2 font-mono text-base font-black tracking-[0.2em] sm:rounded-2xl sm:text-lg">${escapeHtml(state.roomCode)}</span>
             </div>
             <p class="mt-3 text-sm text-white/40">2–4 人 · 全员准备后由房主开始</p>
           </div>
-          <button type="button" data-action="copy-room" class="btn-secondary">复制邀请链接</button>
+          <button type="button" data-action="copy-room" class="btn-secondary w-full sm:w-auto">复制邀请链接</button>
         </div>
 
-        <div class="grid gap-4 sm:grid-cols-2">
+        <div class="grid grid-cols-2 gap-2.5 sm:gap-4">
           ${Array.from({ length: 4 }, (_, index) => renderSeat(players[index], index)).join("")}
         </div>
 
-        <div class="panel mt-6 flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div class="panel sticky bottom-2 z-20 mt-4 flex flex-col gap-3 p-3.5 sm:static sm:mt-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-5">
           <div class="text-sm text-white/45">
             ${
               allReady
@@ -561,18 +572,18 @@
                 : `还需要 ${Math.max(0, 2 - players.length)} 位玩家或等待其他人准备。`
             }
           </div>
-          <div class="flex gap-3">
+          <div class="flex gap-2 sm:gap-3">
             <button
               type="button"
               data-action="toggle-ready"
-              class="${self?.isReady ? "btn-secondary" : "btn-primary"}"
+              class="${self?.isReady ? "btn-secondary" : "btn-primary"} flex-1 sm:flex-none"
               ${busy ? "disabled" : ""}
             >
               ${self?.isReady ? "取消准备" : "我准备好了"}
             </button>
             ${
               self?.isHost
-                ? `<button type="button" data-action="start-game" class="btn-primary" ${allReady && !busy ? "" : "disabled"}>开始游戏</button>`
+                ? `<button type="button" data-action="start-game" class="btn-primary flex-1 sm:flex-none" ${allReady && !busy ? "" : "disabled"}>开始游戏</button>`
                 : ""
             }
           </div>
@@ -594,8 +605,8 @@
         aria-label="${actionable ? "猜测这张暗牌" : showValue ? `牌面 ${value}` : "未揭开的牌"}"
       >
         <span class="relative z-10 text-[0.58rem] font-black uppercase tracking-widest opacity-45">${tile.color === "white" ? "W" : "B"}</span>
-        <span class="relative z-10 text-3xl font-black tracking-tighter sm:text-4xl">${showValue ? escapeHtml(value) : ""}</span>
-        <span class="relative z-10 text-[0.55rem] font-bold opacity-35">${tile.isRevealed ? "OPEN" : options.isSelf ? "PRIVATE" : "CODE"}</span>
+        <span class="relative z-10 text-[1.7rem] font-black tracking-tighter sm:text-4xl">${showValue ? escapeHtml(value) : ""}</span>
+        <span class="relative z-10 text-[0.48rem] font-bold opacity-35 sm:text-[0.55rem]">${tile.isRevealed ? "OPEN" : options.isSelf ? "PRIVATE" : "CODE"}</span>
       </button>
     `;
   }
@@ -603,13 +614,13 @@
   function renderPlayerHand(player, options = {}) {
     if (player.handHidden || !player.hand) {
       return `
-        <div class="flex min-h-28 items-center justify-center rounded-2xl border border-dashed border-white/10 bg-black/15 px-6 text-center text-sm text-white/30">
+        <div class="flex min-h-24 items-center justify-center rounded-2xl border border-dashed border-white/10 bg-black/15 px-4 text-center text-xs leading-5 text-white/30 sm:min-h-28 sm:px-6 sm:text-sm">
           对方正在摆放手牌<br />颜色与张数已隐藏
         </div>
       `;
     }
     return `
-      <div class="scrollbar-subtle flex gap-2 overflow-x-auto px-1 py-2">
+      <div class="scrollbar-subtle flex gap-1.5 overflow-x-auto px-0.5 py-2 sm:gap-2 sm:px-1">
         ${player.hand
           .map((tile) =>
             tileMarkup(tile, {
@@ -641,7 +652,7 @@
 
   function renderOpponentZone(player) {
     return `
-      <section class="rounded-3xl border ${player.isCurrentTurn ? "border-lime-300/30 bg-lime-300/[0.035]" : "border-white/8 bg-white/[0.025]"} p-4">
+      <section class="min-w-[82vw] snap-center rounded-2xl border ${player.isCurrentTurn ? "border-lime-300/35 bg-lime-300/[0.045] shadow-lg shadow-lime-300/5" : "border-white/8 bg-white/[0.025]"} p-3 sm:min-w-[60vw] sm:rounded-3xl sm:p-4 md:min-w-0">
         <div class="mb-2 flex items-center justify-between gap-3">
           <div>
             <h3 class="font-bold ${player.isEliminated ? "text-white/35 line-through" : "text-white"}">${escapeHtml(player.nickname)}</h3>
@@ -662,37 +673,37 @@
     const opponents = state.gameState.players.filter((player) => !player.isSelf);
     const opponentGridClass =
       opponents.length >= 3
-        ? "lg:grid-cols-3"
+        ? "md:grid-cols-3"
         : opponents.length === 2
-          ? "lg:grid-cols-2"
-          : "lg:grid-cols-1";
+          ? "md:grid-cols-2"
+          : "md:grid-cols-1";
     return `
-      <div class="mx-auto w-full max-w-7xl py-3">
-        <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div class="mx-auto w-full max-w-7xl py-1 sm:py-3">
+        <div class="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
           <div>
             <p class="eyebrow">SETUP / DASH</p>
-            <h1 class="mt-2 text-3xl font-black tracking-tight sm:text-4xl">安排你的伪装牌</h1>
+            <h1 class="mt-2 text-2xl font-black tracking-tight sm:text-4xl">安排你的伪装牌</h1>
           </div>
-          <span class="rounded-full border border-white/10 px-3 py-2 text-xs font-bold text-white/45">正式回合尚未开始</span>
+          <span class="self-start rounded-full border border-white/10 px-3 py-2 text-[0.68rem] font-bold text-white/45 sm:self-auto sm:text-xs">正式回合尚未开始</span>
         </div>
 
-        <div class="grid gap-4 ${opponentGridClass}">
+        <div class="scrollbar-subtle -mx-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-3 pb-1 sm:-mx-6 sm:px-6 md:mx-0 md:grid md:px-0 ${opponentGridClass}">
           ${opponents.map(renderOpponentZone).join("")}
         </div>
 
-        <section class="panel mt-5 p-5 sm:p-7">
+        <section class="panel table-surface mt-4 p-4 sm:mt-5 sm:p-7">
           ${
             state.gameState.canAct.confirmDash
               ? `
-                <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                <div class="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <p class="eyebrow">YOUR PRIVATE HAND</p>
                     <h2 class="mt-2 text-xl font-black">用箭头把 Dash 移到任意位置</h2>
                     <p class="mt-2 text-sm text-white/40">数字牌的升序不会改变；提交前只有你能看到这些牌。</p>
                   </div>
-                  <button type="button" data-action="confirm-dash" class="btn-primary shrink-0">确认牌序</button>
+                  <button type="button" data-action="confirm-dash" class="btn-primary w-full shrink-0 sm:w-auto">确认牌序</button>
                 </div>
-                <div class="scrollbar-subtle mt-5 flex gap-3 overflow-x-auto py-2">
+                <div class="scrollbar-subtle -mx-1 mt-4 flex gap-2 overflow-x-auto px-1 py-2 sm:mt-5 sm:gap-3">
                   ${orderedTiles
                     .map((tile, index) => {
                       const isDash = tile.value === DASH;
@@ -703,11 +714,11 @@
                             isDash
                               ? `
                                 <div class="flex gap-1">
-                                  <button type="button" data-action="move-dash" data-tile-id="${tile.id}" data-direction="-1" class="h-8 w-8 rounded-lg bg-white/8 text-sm font-black hover:bg-white/15" ${index === 0 ? "disabled" : ""}>←</button>
-                                  <button type="button" data-action="move-dash" data-tile-id="${tile.id}" data-direction="1" class="h-8 w-8 rounded-lg bg-white/8 text-sm font-black hover:bg-white/15" ${index === orderedTiles.length - 1 ? "disabled" : ""}>→</button>
+                                  <button type="button" data-action="move-dash" data-tile-id="${tile.id}" data-direction="-1" class="h-10 w-10 rounded-xl bg-white/8 text-sm font-black hover:bg-white/15 disabled:opacity-25" ${index === 0 ? "disabled" : ""}>←</button>
+                                  <button type="button" data-action="move-dash" data-tile-id="${tile.id}" data-direction="1" class="h-10 w-10 rounded-xl bg-white/8 text-sm font-black hover:bg-white/15 disabled:opacity-25" ${index === orderedTiles.length - 1 ? "disabled" : ""}>→</button>
                                 </div>
                               `
-                              : `<span class="h-8 text-[0.6rem] font-bold text-white/20">LOCKED</span>`
+                              : `<span class="h-10 pt-2 text-[0.6rem] font-bold text-white/20">LOCKED</span>`
                           }
                         </div>
                       `;
@@ -775,13 +786,26 @@
     if (game.phase === "DRAW") {
       actionContent = isMyTurn
         ? `
-          <div class="flex flex-wrap justify-center gap-3">
-            <button type="button" data-action="draw-tile" data-color="black" class="btn-secondary min-w-32" ${counts.black ? "" : "disabled"}>
-              摸黑牌 <span class="text-white/35">${counts.black}</span>
+          <div>
+            <p class="mb-3 text-[0.65rem] font-semibold text-amber-300/75">牌面数字 = 牌库剩余张数</p>
+            <div class="flex justify-center gap-8">
+            <button type="button" data-action="draw-tile" data-color="black" class="group flex flex-col items-center gap-1.5 transition active:scale-95 disabled:opacity-30" ${counts.black ? "" : "disabled"}>
+              <span class="tile tile-black !h-16 !w-12 !rounded-lg">
+                <span class="text-[0.48rem] font-black opacity-40">CODA</span>
+                <span class="text-lg font-black">${counts.black}</span>
+                <span class="h-0.5 w-2 rounded bg-zinc-600"></span>
+              </span>
+              <span class="text-xs font-bold text-stone-300 group-hover:text-amber-300">摸黑牌</span>
             </button>
-            <button type="button" data-action="draw-tile" data-color="white" class="btn-secondary min-w-32" ${counts.white ? "" : "disabled"}>
-              摸白牌 <span class="text-white/35">${counts.white}</span>
+            <button type="button" data-action="draw-tile" data-color="white" class="group flex flex-col items-center gap-1.5 transition active:scale-95 disabled:opacity-30" ${counts.white ? "" : "disabled"}>
+              <span class="tile tile-white !h-16 !w-12 !rounded-lg">
+                <span class="text-[0.48rem] font-black opacity-40">CODA</span>
+                <span class="text-lg font-black">${counts.white}</span>
+                <span class="h-0.5 w-2 rounded bg-slate-300"></span>
+              </span>
+              <span class="text-xs font-bold text-stone-300 group-hover:text-amber-300">摸白牌</span>
             </button>
+            </div>
           </div>
         `
         : `<p class="text-sm text-white/40">${escapeHtml(actor?.nickname)} 正在选择摸牌颜色…</p>`;
@@ -804,9 +828,9 @@
         ? `
           <div>
             <p class="mb-4 text-sm font-bold text-lime-200">猜对了。继续冒险，还是保住摸到的牌？</p>
-            <div class="flex flex-wrap justify-center gap-3">
-              <button type="button" data-action="continue-guess" class="btn-secondary">继续猜牌</button>
-              <button type="button" data-action="end-turn" class="btn-primary">结束回合</button>
+            <div class="flex justify-center gap-2 sm:gap-3">
+              <button type="button" data-action="continue-guess" class="btn-secondary flex-1 sm:flex-none">继续猜牌</button>
+              <button type="button" data-action="end-turn" class="btn-primary flex-1 sm:flex-none">结束回合</button>
             </div>
           </div>
         `
@@ -814,15 +838,15 @@
     }
 
     return `
-      <div class="text-center">
-        <div class="mb-4 flex items-center justify-center gap-2">
+      <div class="w-full text-center">
+        <div class="mb-3 flex items-center justify-center gap-2 sm:mb-4">
           <span class="eyebrow">${escapeHtml(formatPhase(game.phase))}</span>
-          ${isMyTurn ? `<span class="rounded-full bg-lime-300/10 px-2 py-1 text-[0.62rem] font-black text-lime-300">YOUR TURN</span>` : ""}
+          ${isMyTurn ? `<span class="rounded-full border border-amber-700/50 bg-amber-950/60 px-2 py-1 text-[0.62rem] font-black text-amber-300">YOUR TURN</span>` : ""}
         </div>
         ${
           turnDraw
             ? `
-              <div class="mb-5 flex justify-center">
+              <div class="mb-4 flex justify-center sm:mb-5">
                 <div>
                   ${tileMarkup(turnDraw, { isSelf: isMyTurn })}
                   <p class="mt-2 text-[0.6rem] font-bold uppercase tracking-wider text-white/25">${turnDraw.isPlaced ? "PLACED" : "DRAWN"}</p>
@@ -838,27 +862,35 @@
 
   function renderLogs() {
     const logs = state.gameState?.logs || [];
+    const logEntries = logs.length
+      ? [...logs]
+          .reverse()
+          .map(
+            (log) => `
+              <div class="border-l border-amber-800/35 pl-3 text-xs leading-5 text-stone-400">
+                ${escapeHtml(log.message)}
+              </div>
+            `,
+          )
+          .join("")
+      : `<p class="text-xs text-stone-600">对局日志会显示在这里。</p>`;
     return `
-      <aside class="panel flex min-h-0 flex-col p-4">
+      <details class="panel group p-3.5 lg:hidden">
+        <summary class="flex cursor-pointer list-none items-center justify-between">
+          <span class="eyebrow text-amber-400">对局记录 / GAME LOG</span>
+          <span class="rounded-lg bg-stone-800 px-2 py-1 text-[0.62rem] text-stone-400">${logs.length} 条 · 点击展开</span>
+        </summary>
+        <div class="scrollbar-subtle mt-4 max-h-52 space-y-3 overflow-y-auto pr-2">
+          ${logEntries}
+        </div>
+      </details>
+      <aside class="panel hidden min-h-0 flex-col p-4 lg:flex">
         <div class="mb-3 flex items-center justify-between">
-          <p class="eyebrow">GAME LOG</p>
+          <p class="eyebrow text-amber-400">GAME LOG</p>
           <span class="text-[0.62rem] text-white/25">${logs.length} 条</span>
         </div>
         <div class="scrollbar-subtle max-h-64 space-y-3 overflow-y-auto pr-2 lg:max-h-none lg:flex-1">
-          ${
-            logs.length
-              ? [...logs]
-                  .reverse()
-                  .map(
-                    (log) => `
-                      <div class="border-l border-white/10 pl-3 text-xs leading-5 text-white/40">
-                        ${escapeHtml(log.message)}
-                      </div>
-                    `,
-                  )
-                  .join("")
-              : `<p class="text-xs text-white/25">对局日志会显示在这里。</p>`
-          }
+          ${logEntries}
         </div>
       </aside>
     `;
@@ -882,24 +914,30 @@
 
     const self = selfGamePlayer();
     const opponents = game.players.filter((player) => !player.isSelf);
+    const opponentGridClass =
+      opponents.length >= 3
+        ? "md:grid-cols-3"
+        : opponents.length === 2
+          ? "md:grid-cols-2"
+          : "md:grid-cols-1";
     return `
-      <div class="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div class="flex min-h-0 flex-col gap-4">
-          <div class="grid gap-3 ${opponents.length === 1 ? "grid-cols-1" : opponents.length === 2 ? "md:grid-cols-2" : "md:grid-cols-3"}">
+      <div class="grid min-h-0 flex-1 gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div class="flex min-h-0 flex-col gap-3 sm:gap-4">
+          <div class="scrollbar-subtle -mx-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-3 pb-1 sm:-mx-6 sm:px-6 md:mx-0 md:grid md:px-0 ${opponentGridClass}">
             ${opponents.map(renderOpponentZone).join("")}
           </div>
 
-          <section class="panel flex min-h-64 flex-1 items-center justify-center p-5 sm:p-7">
+          <section class="panel table-surface sticky bottom-2 z-20 flex min-h-48 items-center justify-center border-amber-900/35 p-4 sm:static sm:min-h-64 sm:flex-1 sm:p-7">
             ${renderTurnControl()}
           </section>
 
-          <section class="rounded-3xl border ${self?.isCurrentTurn ? "border-coral-500/35 bg-coral-500/[0.04]" : "border-white/8 bg-white/[0.025]"} p-4 sm:p-5">
+          <section class="rounded-2xl border ${self?.isCurrentTurn ? "border-amber-500/45 bg-amber-950/15" : "border-stone-800 bg-stone-950/70"} p-3 sm:rounded-3xl sm:p-5">
             <div class="mb-2 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 class="font-black">${escapeHtml(self?.nickname || state.nickname)} <span class="text-white/30">/ 你的手牌</span></h3>
-                <p class="mt-1 text-xs text-white/30">${self?.isEliminated ? "你已被淘汰，但仍可观战。" : "完整牌面只发送给你。"}</p>
+                <h3 class="text-sm font-black text-amber-300 sm:text-base">${escapeHtml(self?.nickname || state.nickname)} <span class="text-stone-500">/ 你的手牌</span></h3>
+                <p class="mt-1 text-[0.68rem] text-stone-600 sm:text-xs">${self?.isEliminated ? "你已被淘汰，但仍可观战。" : "完整牌面只发送给你。"}</p>
               </div>
-              <span class="rounded-full border border-white/8 px-3 py-1.5 text-[0.62rem] font-bold text-white/35">${self?.hand?.length || 0} 张</span>
+              <span class="rounded-full border border-stone-800 px-3 py-1.5 text-[0.62rem] font-bold text-stone-500">${self?.hand?.length || 0} 张</span>
             </div>
             ${renderPlayerHand(self, { isSelf: true })}
           </section>
@@ -911,20 +949,21 @@
 
   function renderSettingsModal() {
     return `
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" data-action="close-settings-backdrop">
-        <form data-form="settings" class="panel w-full max-w-lg p-6" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4" data-action="close-settings-backdrop">
+        <form data-form="settings" class="panel safe-bottom w-full max-w-lg rounded-b-none border-x-0 border-b-0 p-5 sm:rounded-3xl sm:border sm:p-6" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+          <div class="mx-auto mb-4 h-1 w-10 rounded-full bg-stone-700 sm:hidden"></div>
           <div class="flex items-start justify-between gap-4">
             <div>
-              <p class="eyebrow">CONNECTION</p>
+              <p class="eyebrow text-amber-400">CONNECTION</p>
               <h2 id="settings-title" class="mt-2 text-2xl font-black">游戏后端地址</h2>
             </div>
-            <button type="button" data-action="close-settings" class="h-10 w-10 rounded-full bg-white/5 text-xl text-white/50 hover:bg-white/10 hover:text-white">×</button>
+            <button type="button" data-action="close-settings" class="h-10 w-10 rounded-xl bg-stone-800 text-xl text-stone-400 hover:bg-stone-700 hover:text-white">×</button>
           </div>
-          <p class="mt-4 text-sm leading-6 text-white/40">本地测试使用 <code class="text-white/65">http://localhost:3000</code>；GitHub Pages 使用 Localtunnel 提供的 HTTPS 地址。</p>
+          <p class="mt-4 text-sm leading-6 text-stone-500">本地测试使用 <code class="text-stone-300">http://localhost:3000</code>；GitHub Pages 请填写可访问后端的 HTTPS 隧道地址。</p>
           <label for="backendUrl" class="mt-5 mb-2 block text-xs font-bold text-white/55">Backend URL</label>
           <input id="backendUrl" name="backendUrl" class="input font-mono" value="${escapeHtml(state.backendUrl)}" required />
-          <div class="mt-5 flex justify-end gap-3">
-            <button type="button" data-action="close-settings" class="btn-quiet">取消</button>
+          <div class="mt-5 grid grid-cols-2 gap-3">
+            <button type="button" data-action="close-settings" class="btn-secondary">取消</button>
             <button class="btn-primary">保存并重连</button>
           </div>
         </form>
@@ -935,30 +974,31 @@
   function renderGuessModal() {
     const target = playerById(state.guessTarget.playerId);
     return `
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-        <div class="panel w-full max-w-md p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="guess-title">
+      <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+        <div class="panel safe-bottom w-full max-w-md rounded-b-none border-x-0 border-b-0 p-5 sm:rounded-3xl sm:border sm:p-6" role="dialog" aria-modal="true" aria-labelledby="guess-title">
+          <div class="mx-auto mb-4 h-1 w-10 rounded-full bg-stone-700 sm:hidden"></div>
           <div class="flex items-start justify-between gap-4">
             <div>
-              <p class="eyebrow">MAKE A CALL</p>
+              <p class="eyebrow text-amber-400">MAKE A CALL</p>
               <h2 id="guess-title" class="mt-2 text-2xl font-black">这张牌是什么？</h2>
-              <p class="mt-2 text-sm text-white/40">目标：${escapeHtml(target?.nickname || "对手")}</p>
+              <p class="mt-2 text-sm text-stone-500">目标：${escapeHtml(target?.nickname || "对手")}</p>
             </div>
-            <button type="button" data-action="close-guess" class="h-10 w-10 rounded-full bg-white/5 text-xl text-white/50 hover:bg-white/10 hover:text-white">×</button>
+            <button type="button" data-action="close-guess" class="h-10 w-10 rounded-xl bg-stone-800 text-xl text-stone-400 hover:bg-stone-700 hover:text-white">×</button>
           </div>
-          <div class="mt-6 grid grid-cols-4 gap-2">
+          <div class="mt-5 grid grid-cols-4 gap-2 sm:mt-6">
             ${Array.from(
               { length: 12 },
               (_, value) => `
-                <button type="button" data-action="submit-guess" data-value="${value}" class="flex aspect-square items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-xl font-black hover:border-lime-300/40 hover:bg-lime-300/10">${value}</button>
+                <button type="button" data-action="submit-guess" data-value="${value}" class="flex aspect-square items-center justify-center rounded-xl border border-stone-700 bg-stone-800 text-xl font-black hover:border-amber-500/60 hover:bg-amber-500/10">${value}</button>
               `,
             ).join("")}
           </div>
-          <button type="button" data-action="submit-guess" data-value="-" class="mt-3 flex w-full items-center justify-between rounded-2xl border border-coral-500/25 bg-coral-500/8 px-5 py-4 text-left hover:bg-coral-500/15">
+          <button type="button" data-action="submit-guess" data-value="-" class="mt-3 flex w-full items-center justify-between rounded-xl border border-amber-600/35 bg-amber-500/10 px-5 py-3.5 text-left hover:bg-amber-500/15">
             <span>
               <span class="block text-lg font-black">Dash / 百搭牌</span>
-              <span class="mt-0.5 block text-xs text-white/35">声明这是一张 “—”</span>
+              <span class="mt-0.5 block text-xs text-stone-500">声明这是一张 “—”</span>
             </span>
-            <span class="text-3xl font-black text-coral-500">—</span>
+            <span class="text-3xl font-black text-amber-500">—</span>
           </button>
         </div>
       </div>
