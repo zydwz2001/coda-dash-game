@@ -485,7 +485,7 @@
   function renderLobby() {
     const roomPrefill = state.joinCode || query.get("room") || "";
     return `
-      <div class="grid flex-1 content-start gap-4 py-1 sm:items-center sm:gap-7 sm:py-7 lg:grid-cols-[1.08fr_0.92fr] lg:gap-14">
+      <div class="grid flex-1 content-center gap-5 py-3 sm:items-center sm:gap-7 sm:py-7 lg:grid-cols-[1.08fr_0.92fr] lg:gap-14">
         <section class="mx-auto w-full max-w-3xl lg:mx-0">
           <div class="mb-5 hidden items-center gap-3 lg:flex">
             <p class="eyebrow">经典推理桌游</p>
