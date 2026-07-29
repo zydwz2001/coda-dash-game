@@ -23,11 +23,11 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
     firstPage.getByRole("button", { name: "创建新房间" }),
   ).toBeEnabled();
   await firstPage.getByRole("button", { name: "创建新房间" }).click();
-  await expect(firstPage).toHaveURL(/room=[A-Z0-9]{4}/);
+  await expect(firstPage).toHaveURL(/room=\d{4}/);
 
   const firstUrl = new URL(firstPage.url());
   const roomCode = firstUrl.searchParams.get("room");
-  expect(roomCode).toMatch(/^[A-Z0-9]{4}$/);
+  expect(roomCode).toMatch(/^\d{4}$/);
 
   await secondPage.goto(
     `/?server=${backendQuery}&room=${encodeURIComponent(roomCode)}`,
@@ -51,6 +51,7 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
   await expect(
     secondPage.locator('[data-action="open-guess"]'),
   ).toHaveCount(0);
+  await expect(firstPage.locator(".tile-relation").first()).toHaveText("<");
 
   const moveDashLeft = firstPage.locator(
     '[data-action="move-dash"][data-direction="-1"]',
@@ -66,6 +67,8 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
   await expect(
     firstPage.getByText(/点击任意对手未翻开的牌/),
   ).toBeVisible();
+  await expect(firstPage.locator(".tile-hidden").first()).toContainText("?");
+  expect(await firstPage.locator(".tile-relation").count()).toBeGreaterThan(0);
 
   await firstPage.locator('[data-action="open-guess"]').first().click();
   await expect(

@@ -134,7 +134,7 @@ test("two-player Socket.IO flow preserves identity and hides face-down values", 
     playerToken: firstToken,
   });
   assert.equal(created.ok, true);
-  assert.match(created.roomCode, /^[A-Z0-9]{4}$/);
+  assert.match(created.roomCode, /^\d{4}$/);
 
   const secondSocket = await connectClient(url);
   clients.push(secondSocket);
@@ -338,6 +338,14 @@ test("two-player Socket.IO flow preserves identity and hides face-down values", 
 
   const intruderSocket = await connectClient(url);
   clients.push(intruderSocket);
+  const invalidRoomCode = await emitAck(intruderSocket, "join_room", {
+    roomCode: "ABCD",
+    nickname: "Intruder",
+    playerToken: "intruder_token_0000000000000",
+  });
+  assert.equal(invalidRoomCode.ok, false);
+  assert.equal(invalidRoomCode.error.code, "INVALID_ROOM_CODE");
+
   const rejected = await emitAck(intruderSocket, "rejoin_room", {
     roomCode: created.roomCode,
     playerToken: "incorrect_token_000000000000",

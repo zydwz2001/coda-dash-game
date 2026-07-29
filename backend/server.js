@@ -22,7 +22,6 @@ const DASH = "-";
 const MAX_PLAYERS = 4;
 const MIN_PLAYERS = 2;
 const MAX_LOGS = 100;
-const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 class GameError extends Error {
   constructor(code, message) {
@@ -56,11 +55,11 @@ function normalizeNickname(value) {
 
 function normalizeRoomCode(value) {
   assertGame(typeof value === "string", "INVALID_ROOM_CODE", "Room code is required.");
-  const roomCode = value.trim().toUpperCase();
+  const roomCode = value.trim();
   assertGame(
-    /^[A-Z0-9]{4}$/.test(roomCode),
+    /^\d{4}$/.test(roomCode),
     "INVALID_ROOM_CODE",
-    "Room code must contain four letters or numbers.",
+    "Room code must contain exactly four digits.",
   );
   return roomCode;
 }
@@ -82,10 +81,7 @@ function normalizePlayerToken(value, { allowGenerate = false } = {}) {
 
 function generateRoomCode(rooms) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
-    let code = "";
-    for (let index = 0; index < 4; index += 1) {
-      code += ROOM_CODE_ALPHABET[randomInt(ROOM_CODE_ALPHABET.length)];
-    }
+    const code = String(randomInt(10_000)).padStart(4, "0");
     if (!rooms.has(code)) {
       return code;
     }

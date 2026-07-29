@@ -81,7 +81,9 @@
     guessTarget: null,
     showSettings: false,
     busyActions: new Set(),
-    joinCode: (query.get("room") || "").toUpperCase().slice(0, 4),
+    joinCode: (query.get("room") || "")
+      .replace(/\D/g, "")
+      .slice(0, 4),
     lastToast: {
       signature: "",
       timestamp: 0,
@@ -377,31 +379,11 @@
 
   function renderShell(content) {
     return `
-      <div class="safe-bottom mx-auto flex min-h-[100dvh] w-full max-w-[1480px] flex-col px-3 pt-3 sm:px-6 sm:pt-4 lg:px-8">
-        <header class="sticky top-2 z-40 flex items-center justify-between rounded-2xl border border-white/8 bg-ink-950/85 px-3 py-2.5 shadow-xl shadow-black/20 backdrop-blur-xl sm:top-3 sm:px-4">
-          <button type="button" data-action="brand-home" class="group flex items-center gap-2.5 text-left">
-            <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 text-[0.62rem] font-black tracking-tight text-amber-50 shadow-lg shadow-amber-950/30">密码</span>
-            <div>
-              <div class="flex items-baseline gap-2">
-                <span class="text-xs font-black tracking-wide text-amber-100 sm:text-sm">达芬奇密码</span>
-                <span class="hidden text-[0.55rem] font-bold tracking-[0.18em] text-amber-500 sm:inline">/ CODE 26</span>
-              </div>
-              <p class="mt-0.5 hidden font-mono text-[0.56rem] font-semibold tracking-[0.13em] text-amber-500/65 sm:block">${state.roomCode ? `ROOM: ${escapeHtml(state.roomCode)}` : "ROOM: ----"}</p>
-            </div>
-          </button>
-          <div class="flex items-center gap-2">
-            ${
-              state.roomCode
-                ? `<span class="rounded-xl border border-white/10 bg-white/4 px-2.5 py-2 font-mono text-[0.68rem] font-black tracking-[0.16em] text-white/55 sm:px-3 sm:text-xs"># ${escapeHtml(state.roomCode)}</span>`
-                : ""
-            }
-            ${connectionBadge()}
-          </div>
-        </header>
+      <div class="safe-bottom mx-auto flex min-h-[100dvh] w-full max-w-[1480px] flex-col px-3 sm:px-6 lg:px-8">
         <main class="flex flex-1 flex-col py-4 sm:py-6">${content}</main>
-        <footer class="flex flex-col items-center justify-between gap-1 border-t border-white/8 py-4 text-center text-[0.68rem] text-white/25 sm:flex-row sm:gap-2 sm:text-left sm:text-xs">
-          <span>黑白 0–11 · Dash × 2 · 2–4 位玩家</span>
-          <span>刷新页面会自动恢复身份与手牌</span>
+        <footer class="flex flex-col items-center justify-between gap-2 border-t border-white/8 py-4 text-center text-[0.68rem] text-white/25 sm:flex-row sm:text-left sm:text-xs">
+          <span>黑白 0–11 · Dash × 2 · 2–4 位玩家 · 刷新自动恢复</span>
+          ${connectionBadge()}
         </footer>
       </div>
       ${state.showSettings ? renderSettingsModal() : ""}
@@ -484,11 +466,13 @@
           <form data-form="join-room" class="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:gap-3">
             <input
               name="roomCode"
-              class="input uppercase tracking-[0.24em]"
+              class="input tracking-[0.24em]"
               maxlength="4"
+              inputmode="numeric"
+              pattern="[0-9]{4}"
               autocomplete="off"
               value="${escapeHtml(roomPrefill)}"
-              placeholder="房间码"
+              placeholder="4 位数字"
             />
             <button class="btn-secondary shrink-0 px-5 sm:px-6" ${state.connected ? "" : "disabled"}>加入</button>
           </form>
@@ -605,7 +589,7 @@
         aria-label="${actionable ? "猜测这张暗牌" : showValue ? `牌面 ${value}` : "未揭开的牌"}"
       >
         <span class="relative z-10 text-[0.58rem] font-black uppercase tracking-widest opacity-45">${tile.color === "white" ? "W" : "B"}</span>
-        <span class="relative z-10 text-[1.7rem] font-black tracking-tighter sm:text-4xl">${showValue ? escapeHtml(value) : ""}</span>
+        <span class="relative z-10 text-[1.7rem] font-black tracking-tighter ${showValue ? "" : "opacity-35"} sm:text-4xl">${showValue ? escapeHtml(value) : "?"}</span>
         <span class="relative z-10 text-[0.48rem] font-bold opacity-35 sm:text-[0.55rem]">${tile.isRevealed ? "OPEN" : options.isSelf ? "PRIVATE" : "CODE"}</span>
       </button>
     `;
@@ -619,20 +603,27 @@
         </div>
       `;
     }
+    const tiles = player.hand
+      .map(
+        (tile) =>
+          tileMarkup(tile, {
+            isSelf: options.isSelf,
+            playerId: player.id,
+            actionable:
+              !options.isSelf &&
+              state.gameState?.canAct?.guess &&
+              !player.isEliminated,
+          }),
+      )
+      .flatMap((tile, index) =>
+        index < player.hand.length - 1
+          ? [tile, `<span class="tile-relation" aria-hidden="true">&lt;</span>`]
+          : [tile],
+      )
+      .join("");
     return `
-      <div class="scrollbar-subtle flex gap-1.5 overflow-x-auto px-0.5 py-2 sm:gap-2 sm:px-1">
-        ${player.hand
-          .map((tile) =>
-            tileMarkup(tile, {
-              isSelf: options.isSelf,
-              playerId: player.id,
-              actionable:
-                !options.isSelf &&
-                state.gameState?.canAct?.guess &&
-                !player.isEliminated,
-            }),
-          )
-          .join("")}
+      <div class="scrollbar-subtle flex items-center overflow-x-auto px-0.5 py-2 sm:px-1">
+        ${tiles}
       </div>
     `;
   }
@@ -703,23 +694,26 @@
                   </div>
                   <button type="button" data-action="confirm-dash" class="btn-primary w-full shrink-0 sm:w-auto">确认牌序</button>
                 </div>
-                <div class="scrollbar-subtle -mx-1 mt-4 flex gap-2 overflow-x-auto px-1 py-2 sm:mt-5 sm:gap-3">
+                <div class="scrollbar-subtle -mx-1 mt-4 flex items-start overflow-x-auto px-1 py-2 sm:mt-5">
                   ${orderedTiles
                     .map((tile, index) => {
                       const isDash = tile.value === DASH;
                       return `
-                        <div class="flex shrink-0 flex-col items-center gap-2">
-                          ${tileMarkup(tile, { isSelf: true })}
-                          ${
-                            isDash
-                              ? `
-                                <div class="flex gap-1">
-                                  <button type="button" data-action="move-dash" data-tile-id="${tile.id}" data-direction="-1" class="h-10 w-10 rounded-xl bg-white/8 text-sm font-black hover:bg-white/15 disabled:opacity-25" ${index === 0 ? "disabled" : ""}>←</button>
-                                  <button type="button" data-action="move-dash" data-tile-id="${tile.id}" data-direction="1" class="h-10 w-10 rounded-xl bg-white/8 text-sm font-black hover:bg-white/15 disabled:opacity-25" ${index === orderedTiles.length - 1 ? "disabled" : ""}>→</button>
-                                </div>
-                              `
-                              : `<span class="h-10 pt-2 text-[0.6rem] font-bold text-white/20">LOCKED</span>`
-                          }
+                        <div class="flex shrink-0 items-start">
+                          <div class="flex flex-col items-center gap-2">
+                            ${tileMarkup(tile, { isSelf: true })}
+                            ${
+                              isDash
+                                ? `
+                                  <div class="flex gap-1">
+                                    <button type="button" data-action="move-dash" data-tile-id="${tile.id}" data-direction="-1" class="h-10 w-10 rounded-xl bg-white/8 text-sm font-black hover:bg-white/15 disabled:opacity-25" ${index === 0 ? "disabled" : ""}>←</button>
+                                    <button type="button" data-action="move-dash" data-tile-id="${tile.id}" data-direction="1" class="h-10 w-10 rounded-xl bg-white/8 text-sm font-black hover:bg-white/15 disabled:opacity-25" ${index === orderedTiles.length - 1 ? "disabled" : ""}>→</button>
+                                  </div>
+                                `
+                                : `<span class="h-10 pt-2 text-[0.6rem] font-bold text-white/20">LOCKED</span>`
+                            }
+                          </div>
+                          ${index < orderedTiles.length - 1 ? `<span class="tile-relation h-[5.4rem] sm:h-28" aria-hidden="true">&lt;</span>` : ""}
                         </div>
                       `;
                     })
@@ -1055,8 +1049,7 @@
     }
     if (event.target.matches('input[name="roomCode"]')) {
       const normalized = event.target.value
-        .toUpperCase()
-        .replace(/[^A-Z0-9]/g, "")
+        .replace(/\D/g, "")
         .slice(0, 4);
       event.target.value = normalized;
       state.joinCode = normalized;
@@ -1073,10 +1066,9 @@
     if (form.matches('[data-form="join-room"]')) {
       const formData = new FormData(form);
       const roomCode = String(formData.get("roomCode") || "")
-        .trim()
-        .toUpperCase();
-      if (!/^[A-Z0-9]{4}$/.test(roomCode)) {
-        showToast("请输入 4 位房间码。", "error");
+        .trim();
+      if (!/^\d{4}$/.test(roomCode)) {
+        showToast("请输入 4 位数字房间码。", "error");
         return;
       }
       await joinRoom(roomCode);
@@ -1116,10 +1108,6 @@
     ) {
       state.showSettings = false;
       render();
-    } else if (action === "brand-home") {
-      if (state.roomCode) {
-        showToast("当前身份仍绑定在房间中；刷新页面会自动回来。");
-      }
     } else if (action === "copy-room") {
       const url = new URL(window.location.href);
       url.searchParams.set("room", state.roomCode);
