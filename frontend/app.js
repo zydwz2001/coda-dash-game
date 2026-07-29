@@ -97,6 +97,7 @@
     guessTarget: null,
     kickTarget: null,
     guessFeedback: null,
+    flashingTileIds: [],
     showSettings: false,
     busyActions: new Set(),
     joinCode: (query.get("room") || "")
@@ -211,6 +212,7 @@
     state.guessTarget = null;
     state.kickTarget = null;
     state.guessFeedback = null;
+    state.flashingTileIds = [];
     storage.remove(STORAGE_KEYS.roomCode);
     setRoomInUrl("");
   }
@@ -361,6 +363,25 @@
       const previousGameState = state.gameState;
       const previousTurnPlayerId = previousGameState?.currentTurnPlayerId;
       const nextTurnPlayerId = gameState.currentTurnPlayerId;
+      const previousSelf = previousGameState?.players.find(
+        (player) => player.id === previousGameState.selfPlayerId,
+      );
+      const nextSelf = gameState.players.find(
+        (player) => player.id === gameState.selfPlayerId,
+      );
+      const newlyGuessedOwnTileIds =
+        previousGameState?.status === "PLAYING" &&
+        previousTurnPlayerId &&
+        previousTurnPlayerId !== gameState.selfPlayerId
+          ? (nextSelf?.hand || [])
+              .filter((tile) => {
+                const previousTile = previousSelf?.hand?.find(
+                  (candidate) => candidate.id === tile.id,
+                );
+                return tile.isRevealed && previousTile && !previousTile.isRevealed;
+              })
+              .map((tile) => tile.id)
+          : [];
       state.gameState = gameState;
       state.playerId = gameState.selfPlayerId;
       syncDashOrder();
@@ -392,6 +413,9 @@
         }
       }
       render();
+      if (newlyGuessedOwnTileIds.length) {
+        showCenterFeedback("hit", newlyGuessedOwnTileIds);
+      }
     });
 
     state.socket.on("action_error", (error) => {
@@ -409,37 +433,10 @@
     });
   }
 
-  function connectionBadge() {
-    const label = state.connected
-      ? "已连接"
-      : state.connecting
-        ? "连接中"
-        : "离线";
-    const dotClass = state.connected
-      ? "bg-emerald-400"
-      : state.connecting
-        ? "bg-amber-300 animate-pulse"
-        : "bg-red-400";
-    return `
-      <button
-        type="button"
-        data-action="open-settings"
-        class="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-white/65 transition hover:bg-white/10 hover:text-white"
-        title="打开连接设置"
-      >
-        <span class="h-2 w-2 rounded-full ${dotClass}"></span>
-        ${label}
-      </button>
-    `;
-  }
-
   function renderShell(content) {
     return `
       <div class="safe-bottom mx-auto flex min-h-[100dvh] w-full max-w-[1480px] flex-col px-3 sm:px-6 lg:px-8">
         <main class="flex flex-1 flex-col py-4 sm:py-6">${content}</main>
-        <footer class="flex justify-center py-4 sm:justify-end">
-          ${connectionBadge()}
-        </footer>
       </div>
       ${state.showSettings ? renderSettingsModal() : ""}
       ${state.guessTarget ? renderGuessModal() : ""}
@@ -587,7 +584,7 @@
     return `
       <div class="rounded-2xl border ${isSelf ? "border-coral-500/35 bg-coral-500/[0.06]" : "border-white/10 bg-white/[0.04]"} p-3.5 sm:rounded-3xl sm:p-5">
         <div class="flex items-start justify-between gap-3">
-          <div class="flex min-w-0 items-center gap-3">
+          <div class="flex min-w-0 flex-1 items-center gap-3">
             <img
               src="${avatarUrl(player.avatarId)}"
               alt="${escapeHtml(player.nickname)} 的头像"
@@ -600,7 +597,7 @@
               </p>
             </div>
           </div>
-          ${player.isHost ? `<span class="rounded-full bg-white/8 px-2 py-1 text-[0.54rem] font-black text-white/45 sm:px-2.5 sm:text-[0.62rem]">房主</span>` : ""}
+          ${player.isHost ? `<span class="shrink-0 whitespace-nowrap rounded-full bg-white/8 px-2 py-1 text-[0.54rem] font-black text-white/45 sm:px-2.5 sm:text-[0.62rem]">房主</span>` : ""}
         </div>
         <div class="mt-4 flex items-center justify-between gap-2 text-[0.68rem] font-bold sm:mt-5 sm:text-xs">
           <span class="flex items-center gap-2">
@@ -677,13 +674,13 @@
     return `
       <button
         type="button"
-        class="tile ${colorClass} ${showValue ? "" : "tile-hidden"} ${actionable ? "tile-actionable" : ""} ${tile.isRevealed ? "tile-revealed" : ""} ${tile.isDrawnThisTurn ? "ring-2 ring-coral-500" : ""}"
+        class="tile ${colorClass} ${showValue ? "" : "tile-hidden"} ${actionable ? "tile-actionable" : ""} ${tile.isRevealed ? "tile-revealed" : ""} ${state.flashingTileIds.includes(tile.id) ? "tile-hit-flash" : ""} ${tile.isDrawnThisTurn ? "ring-2 ring-coral-500" : ""}"
         ${actionable ? `data-action="open-guess" data-player-id="${escapeHtml(options.playerId)}" data-tile-id="${escapeHtml(tile.id)}"` : "disabled"}
         aria-label="${actionable ? "猜测这张暗牌" : showValue ? `牌面 ${value}` : "未揭开的牌"}"
       >
         <span class="relative z-10 text-[0.58rem] font-black tracking-widest opacity-45">${tile.color === "white" ? "白" : "黑"}</span>
         <span class="relative z-10 text-[1.7rem] font-black tracking-tighter ${showValue ? "" : "opacity-35"} sm:text-4xl">${showValue ? escapeHtml(value) : "?"}</span>
-        <span class="relative z-10 text-[0.48rem] font-black text-amber-500 sm:text-[0.55rem]">${tile.isRevealed ? "（已公开）" : ""}</span>
+        <span class="relative z-10 whitespace-nowrap text-[0.48rem] font-black leading-none text-amber-500 sm:text-[0.55rem]">${tile.isRevealed ? "【公开】" : ""}</span>
       </button>
     `;
   }
@@ -715,7 +712,7 @@
       )
       .join("");
     return `
-      <div class="scrollbar-subtle flex items-center overflow-x-auto px-0.5 py-2 sm:px-1">
+      <div class="player-hand-row scrollbar-subtle flex items-center overflow-x-auto px-2 py-3">
         ${tiles}
       </div>
     `;
@@ -736,7 +733,7 @@
 
   function renderOpponentZone(player) {
     return `
-      <section class="min-w-[82vw] snap-center rounded-2xl border ${player.isCurrentTurn ? "border-lime-300/35 bg-lime-300/[0.045] shadow-lg shadow-lime-300/5" : "border-white/8 bg-white/[0.025]"} p-3 sm:min-w-[60vw] sm:rounded-3xl sm:p-4 md:min-w-0">
+      <section class="opponent-zone min-w-full snap-center rounded-2xl border ${player.isCurrentTurn ? "border-lime-300/35 bg-lime-300/[0.045] shadow-lg shadow-lime-300/5" : "border-white/8 bg-white/[0.025]"} p-3 sm:rounded-3xl sm:p-4 md:min-w-0">
         <div class="mb-2 flex items-center justify-between gap-3">
           <div class="flex min-w-0 items-center gap-2.5">
             <img src="${avatarUrl(player.avatarId)}" alt="" class="h-9 w-9 shrink-0 rounded-xl border border-white/10 object-cover ${player.isEliminated ? "grayscale opacity-40" : ""}" />
@@ -1087,6 +1084,10 @@
 
   function renderGuessModal() {
     const target = playerById(state.guessTarget.playerId);
+    const guessValues = [
+      ...Array.from({ length: 12 }, (_, value) => value),
+      DASH,
+    ];
     return `
       <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-4">
         <div class="panel safe-bottom w-full max-w-md rounded-b-none border-x-0 border-b-0 p-5 sm:rounded-3xl sm:border sm:p-6" role="dialog" aria-modal="true" aria-labelledby="guess-title">
@@ -1099,21 +1100,21 @@
             </div>
             <button type="button" data-action="close-guess" class="h-10 w-10 rounded-xl bg-stone-800 text-xl text-stone-400 hover:bg-stone-700 hover:text-white">×</button>
           </div>
-          <div class="mt-5 grid grid-cols-4 gap-2 sm:mt-6">
-            ${Array.from(
-              { length: 12 },
-              (_, value) => `
-                <button type="button" data-action="submit-guess" data-value="${value}" class="flex aspect-square items-center justify-center rounded-xl border border-stone-700 bg-stone-800 text-xl font-black hover:border-amber-500/60 hover:bg-amber-500/10">${value}</button>
-              `,
-            ).join("")}
+          <div class="mt-5 grid grid-cols-5 gap-2 sm:mt-6">
+            ${guessValues
+              .map(
+                (value) => `
+                  <button
+                    type="button"
+                    data-action="submit-guess"
+                    data-value="${value}"
+                    aria-label="${value === DASH ? "猜百搭牌" : `猜数字 ${value}`}"
+                    class="guess-option ${value === 10 ? "col-start-2" : ""} flex aspect-square items-center justify-center rounded-xl border border-stone-700 bg-stone-800 text-xl font-black text-stone-100 transition hover:border-stone-500 hover:bg-stone-700"
+                  >${value === DASH ? "—" : value}</button>
+                `,
+              )
+              .join("")}
           </div>
-          <button type="button" data-action="submit-guess" data-value="-" class="mt-3 flex w-full items-center justify-between rounded-xl border border-amber-600/35 bg-amber-500/10 px-5 py-3.5 text-left hover:bg-amber-500/15">
-            <span>
-              <span class="block text-lg font-black">百搭牌</span>
-              <span class="mt-0.5 block text-xs text-stone-500">声明这是一张 “—”</span>
-            </span>
-            <span class="text-3xl font-black text-amber-500">—</span>
-          </button>
         </div>
       </div>
     `;
@@ -1143,33 +1144,49 @@
 
   function renderGuessFeedback() {
     const feedback = state.guessFeedback;
-    const correct = feedback.correct;
-    const detail = feedback.gameFinished
-      ? "本局胜负已揭晓。"
-      : correct
-        ? "这张牌已公开，请继续选择要猜的牌。"
-        : "本回合摸到的牌已公开，回合结束。";
+    const isCorrect = feedback.kind === "correct";
+    const isHit = feedback.kind === "hit";
+    const toneClass = isCorrect
+      ? "border-emerald-500/60 bg-emerald-950/95 text-emerald-50"
+      : isHit
+        ? "border-amber-500/60 bg-amber-950/95 text-amber-50"
+        : "border-red-500/60 bg-red-950/95 text-red-50";
+    const iconClass = isCorrect
+      ? "bg-emerald-400 text-emerald-950"
+      : isHit
+        ? "bg-amber-400 text-amber-950"
+        : "bg-red-400 text-red-950";
+    const icon = isCorrect ? "✓" : isHit ? "!" : "×";
+    const label = isCorrect ? "猜对了" : isHit ? "被猜中了！" : "猜错了";
+    const backdropClass = isHit
+      ? "bg-transparent"
+      : "bg-black/30 backdrop-blur-[2px]";
     return `
-      <div class="pointer-events-none fixed inset-0 z-[70] flex items-center justify-center bg-black/35 p-5 backdrop-blur-[2px]">
-        <div class="${correct ? "border-emerald-500/60 bg-emerald-950/95 text-emerald-50" : "border-red-500/60 bg-red-950/95 text-red-50"} w-full max-w-sm rounded-3xl border px-6 py-8 text-center shadow-2xl">
-          <div class="${correct ? "bg-emerald-400 text-emerald-950" : "bg-red-400 text-red-950"} mx-auto flex h-14 w-14 items-center justify-center rounded-full text-3xl font-black">${correct ? "✓" : "×"}</div>
-          <h2 class="mt-4 text-3xl font-black">${correct ? "猜对了！" : "猜错了！"}</h2>
-          <p class="mt-2 text-sm opacity-70">${detail}</p>
+      <div class="${backdropClass} pointer-events-none fixed inset-0 z-[70] flex items-center justify-center p-5" data-feedback-kind="${feedback.kind}">
+        <div class="${toneClass} w-full max-w-xs rounded-3xl border px-6 py-7 text-center shadow-2xl">
+          <div class="${iconClass} mx-auto flex h-14 w-14 items-center justify-center rounded-full text-3xl font-black">${icon}</div>
+          <h2 class="mt-4 text-3xl font-black">${label}</h2>
         </div>
       </div>
     `;
   }
 
-  function showGuessFeedback(correct, gameFinished = false) {
+  function showCenterFeedback(kind, flashingTileIds = []) {
     const id = Date.now();
-    state.guessFeedback = { id, correct, gameFinished };
+    state.guessFeedback = { id, kind };
+    state.flashingTileIds = flashingTileIds;
     render();
     window.setTimeout(() => {
       if (state.guessFeedback?.id === id) {
         state.guessFeedback = null;
+        state.flashingTileIds = [];
         render();
       }
-    }, 1_600);
+    }, 900);
+  }
+
+  function showGuessFeedback(correct) {
+    showCenterFeedback(correct ? "correct" : "wrong");
   }
 
   function render() {
@@ -1416,7 +1433,7 @@
         value,
       });
       if (response) {
-        showGuessFeedback(response.correct, response.gameFinished);
+        showGuessFeedback(response.correct);
       }
     } else if (action === "continue-guess") {
       await runAction("continue_guess");

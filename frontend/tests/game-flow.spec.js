@@ -6,7 +6,9 @@ const { test, expect } = require("@playwright/test");
 test("two browser identities can arrange Dash, play, and refresh-rejoin", async ({
   browser,
 }) => {
-  const firstContext = await browser.newContext();
+  const firstContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+  });
   const secondContext = await browser.newContext();
   const firstPage = await firstContext.newPage();
   const secondPage = await secondContext.newPage();
@@ -49,6 +51,15 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
   await expect(
     secondPage.getByText(/还需要 \d+ 位玩家或等待其他人/),
   ).toHaveCount(0);
+  await expect(firstPage.getByText("房主", { exact: true })).toHaveCSS(
+    "white-space",
+    "nowrap",
+  );
+  mkdirSync("artifacts", { recursive: true });
+  await firstPage.screenshot({
+    path: "artifacts/coda-room-mobile.png",
+    fullPage: true,
+  });
   await firstPage.getByRole("button", { name: "刷新座位" }).click();
   await expect(firstPage.getByText("房间座位已刷新。")).toBeVisible();
   await firstPage.getByRole("button", { name: "移出" }).click();
@@ -105,13 +116,29 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
   await expect(
     firstPage.getByRole("heading", { name: "这张牌是什么？" }),
   ).toBeVisible();
+  await expect(firstPage.locator(".guess-option")).toHaveCount(13);
+  await expect(
+    firstPage.locator('[data-action="submit-guess"][data-value="-"]'),
+  ).toHaveCSS(
+    "background-color",
+    await firstPage
+      .locator('[data-action="submit-guess"][data-value="0"]')
+      .evaluate((element) => getComputedStyle(element).backgroundColor),
+  );
+  await firstPage.screenshot({
+    path: "artifacts/coda-guess-mobile.png",
+    fullPage: true,
+  });
   await firstPage
     .locator('[data-action="submit-guess"][data-value="-"]')
     .click();
 
-  await expect(firstPage.getByRole("heading", { name: "猜错了！" })).toBeVisible();
+  await expect(firstPage.getByRole("heading", { name: "猜错了" })).toBeVisible();
+  await expect(firstPage.locator('[data-feedback-kind="wrong"] p')).toHaveCount(
+    0,
+  );
   await expect(firstPage.locator(".tile-revealed").first()).toContainText(
-    "（已公开）",
+    "【公开】",
   );
   await expect(secondPage.getByText("轮到你的回合", { exact: true })).toBeVisible();
   await expect(secondPage.getByText("上一回合：Ada 已结束")).toBeVisible();
@@ -140,9 +167,10 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
     fullPage: true,
   });
 
-  await firstPage.setViewportSize({ width: 390, height: 844 });
   await expect(firstPage.getByText(/你的手牌/)).toBeVisible();
-  await expect(firstPage.getByRole("button", { name: "已连接" })).toBeVisible();
+  await expect(firstPage.getByText("已连接", { exact: true })).toHaveCount(0);
+  const opponentBox = await firstPage.locator(".opponent-zone").boundingBox();
+  expect(opponentBox.width).toBeGreaterThanOrEqual(360);
   const viewportMetrics = await firstPage.evaluate(() => ({
     viewportWidth: window.innerWidth,
     pageWidth: document.documentElement.scrollWidth,
@@ -161,12 +189,35 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
     await secondPage
       .locator(`[data-action="submit-guess"][data-value="${value}"]`)
       .click();
+    await Promise.all([
+      expect(
+        secondPage.getByRole("heading", { name: "猜对了" }),
+      ).toBeVisible(),
+      expect(
+        firstPage.getByRole("heading", { name: "被猜中了！" }),
+      ).toBeVisible(),
+      expect(firstPage.locator(".tile-hit-flash")).toHaveCount(1),
+    ]);
+    if (value === "0") {
+      const handRowBox = await firstPage
+        .locator(".player-hand-row")
+        .last()
+        .boundingBox();
+      const flashingTileBox = await firstPage
+        .locator(".tile-hit-flash")
+        .boundingBox();
+      expect(flashingTileBox.x - handRowBox.x).toBeGreaterThanOrEqual(4);
+      await firstPage.screenshot({
+        path: "artifacts/coda-hit-mobile.png",
+        fullPage: true,
+      });
+    }
     await expect(
-      secondPage.getByRole("heading", { name: "猜对了！" }),
-    ).toBeVisible();
+      secondPage.getByRole("heading", { name: "猜对了" }),
+    ).toBeHidden({ timeout: 2_000 });
     await expect(
-      secondPage.getByRole("heading", { name: "猜对了！" }),
-    ).toBeHidden({ timeout: 3_000 });
+      firstPage.getByRole("heading", { name: "被猜中了！" }),
+    ).toBeHidden({ timeout: 2_000 });
     if (value !== "4") {
       await expect(
         secondPage.getByRole("button", { name: "跳过回合" }),
@@ -202,7 +253,7 @@ test("lobby stays usable at a phone viewport", async ({ page }) => {
   const backendQuery = encodeURIComponent("http://127.0.0.1:3100");
   await page.goto(`/?server=${backendQuery}`);
 
-  await expect(page.getByRole("button", { name: "已连接" })).toBeVisible();
+  await expect(page.getByText("已连接", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "创建新房间" })).toBeVisible();
   await expect(page.locator("#nickname")).toBeVisible();
   await expect(page.locator('[data-action="select-avatar"]')).toHaveCount(8);
@@ -210,10 +261,6 @@ test("lobby stays usable at a phone viewport", async ({ page }) => {
   await expect(page.getByText("无需登录")).toHaveCount(0);
   await expect(page.getByText(/黑白 0–11/)).toHaveCount(0);
   await expect(page.getByText(/当前后端/)).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "已连接" })).toHaveAttribute(
-    "title",
-    "打开连接设置",
-  );
 
   const viewportMetrics = await page.evaluate(() => ({
     viewportWidth: window.innerWidth,

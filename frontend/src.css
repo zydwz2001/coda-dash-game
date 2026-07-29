@@ -156,6 +156,25 @@
   }
 }
 
+@keyframes tile-hit-flash {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+
+  25%,
+  70% {
+    box-shadow:
+      0 0 0 4px rgb(248 113 113 / 0.95),
+      0 0 24px 7px rgb(248 113 113 / 0.55);
+    filter: brightness(1.35);
+  }
+}
+
+.tile-hit-flash {
+  animation: tile-hit-flash 900ms ease-in-out;
+}
+
 @keyframes toast-in {
   from {
     opacity: 0;
