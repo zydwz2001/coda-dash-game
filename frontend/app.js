@@ -110,6 +110,7 @@
     kickTarget: null,
     guessFeedback: null,
     flashingTileIds: [],
+    logsExpanded: false,
     showLeaveGameConfirm: false,
     showSettings: false,
     busyActions: new Set(),
@@ -226,6 +227,7 @@
     state.kickTarget = null;
     state.guessFeedback = null;
     state.flashingTileIds = [];
+    state.logsExpanded = false;
     state.showLeaveGameConfirm = false;
     storage.remove(STORAGE_KEYS.roomCode);
     setRoomInUrl("");
@@ -959,7 +961,7 @@
         </div>
       `;
     } else if (game.phase === "WAITING_FOR_PLAYER") {
-      instruction = `${escapeHtml(actor?.nickname || "当前玩家")} 正在放置摸到的百搭牌`;
+      instruction = `${escapeHtml(actor?.nickname || "当前玩家")} 正在选择要猜的牌`;
     } else if (game.phase === "GUESS") {
       instruction = isMyTurn
         ? "请选择对手的任意一张牌进行猜牌"
@@ -1016,10 +1018,10 @@
           .join("")
       : `<p class="text-xs text-stone-600">对局日志会显示在这里。</p>`;
     return `
-      <details class="panel group p-3.5 lg:hidden">
-        <summary class="flex cursor-pointer list-none items-center justify-between">
+      <details data-log-details class="panel group p-3.5 lg:hidden" ${state.logsExpanded ? "open" : ""}>
+        <summary data-action="toggle-logs" class="flex cursor-pointer list-none items-center justify-between">
           <span class="eyebrow text-amber-400">对局记录</span>
-          <span class="rounded-lg bg-stone-800 px-2 py-1 text-[0.62rem] text-stone-400">${logs.length} 条 · 点击展开</span>
+          <span class="rounded-lg bg-stone-800 px-2 py-1 text-[0.62rem] text-stone-400">${logs.length} 条 · ${state.logsExpanded ? "点击收起" : "点击展开"}</span>
         </summary>
         <div class="scrollbar-subtle mt-4 max-h-52 space-y-3 overflow-y-auto pr-2">
           ${logEntries}
@@ -1379,6 +1381,10 @@
       }
     } else if (action === "open-leave-game") {
       state.showLeaveGameConfirm = true;
+      render();
+    } else if (action === "toggle-logs") {
+      event.preventDefault();
+      state.logsExpanded = !state.logsExpanded;
       render();
     } else if (action === "close-leave-game") {
       state.showLeaveGameConfirm = false;

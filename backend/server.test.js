@@ -265,6 +265,9 @@ test("two-player Socket.IO flow preserves identity and hides face-down values", 
     }
   }
   assert(drawnDash);
+  const firstHandBeforePrivateDraw = secondObserved.game.players
+    .find((player) => player.id === created.playerId)
+    .hand.map((tile) => tile.id);
 
   assert.equal(
     (
@@ -275,13 +278,19 @@ test("two-player Socket.IO flow preserves identity and hides face-down values", 
     true,
   );
   await waitFor(
-    () => secondObserved.game?.phase === "WAITING_FOR_PLAYER",
-    "The opponent did not receive the private Dash waiting phase.",
+    () => secondObserved.game?.phase === TURN_PHASE.GUESS,
+    "The opponent did not receive the generic guessing phase.",
   );
   assert.equal(firstObserved.game.phase, TURN_PHASE.PLACE_DASH);
   assert.equal(firstObserved.game.turnDraw.value, DASH);
-  assert.equal(secondObserved.game.phase, "WAITING_FOR_PLAYER");
-  assert.equal("value" in secondObserved.game.turnDraw, false);
+  assert.equal(secondObserved.game.phase, TURN_PHASE.GUESS);
+  assert.equal(secondObserved.game.turnDraw, null);
+  assert.deepEqual(
+    secondObserved.game.players
+      .find((player) => player.id === created.playerId)
+      .hand.map((tile) => tile.id),
+    firstHandBeforePrivateDraw,
+  );
 
   assert.equal(
     (
@@ -298,9 +307,15 @@ test("two-player Socket.IO flow preserves identity and hides face-down values", 
     "The opponent did not receive the placed tile state.",
   );
   assert.equal(firstObserved.game.phase, TURN_PHASE.GUESS);
+  assert.equal(ownPlayer(firstObserved.game).hand[0].id, drawnDash.id);
+  assert.equal(ownPlayer(firstObserved.game).hand[0].isDrawnThisTurn, true);
   assert.equal(secondObserved.game.turnDraw, null);
   const placedFirstPlayer = secondObserved.game.players.find(
     (player) => player.id === created.playerId,
+  );
+  assert.deepEqual(
+    placedFirstPlayer.hand.map((tile) => tile.id),
+    firstHandBeforePrivateDraw,
   );
   assert.equal(
     placedFirstPlayer.hand

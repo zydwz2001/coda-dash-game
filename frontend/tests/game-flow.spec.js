@@ -183,7 +183,20 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
     fullPage: true,
   });
 
+  const mobileLogs = firstPage.locator("[data-log-details]");
+  await firstPage.locator('[data-action="toggle-logs"]').click();
+  await expect(mobileLogs).toHaveAttribute("open", "");
+  const opponentTileCountBeforeDraw = await firstPage
+    .locator(".opponent-zone .tile")
+    .count();
   await secondPage.getByRole("button", { name: /摸黑牌/ }).click();
+  await expect(mobileLogs).toHaveAttribute("open", "");
+  await expect(firstPage.locator(".opponent-zone .tile")).toHaveCount(
+    opponentTileCountBeforeDraw,
+  );
+  await expect(
+    firstPage.getByText("本回合摸到", { exact: true }),
+  ).toHaveCount(0);
   for (const value of ["0", "-", "2", "4"]) {
     await secondPage.locator('[data-action="open-guess"]').first().click();
     await secondPage

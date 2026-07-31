@@ -214,7 +214,7 @@ function createRoom({ roomCode, player }) {
     turnPhase: null,
     turn: {
       drawnTile: null,
-      drawnTileId: null,
+      drawnTileInsertIndex: null,
       lastGuessCorrect: false,
     },
     winnerPlayerId: null,
@@ -255,7 +255,7 @@ function allDrawPilesEmpty(room) {
 function resetTurn(room) {
   room.turn = {
     drawnTile: null,
-    drawnTileId: null,
+    drawnTileInsertIndex: null,
     lastGuessCorrect: false,
   };
 }
@@ -471,7 +471,7 @@ function drawForPlayer(room, player, color) {
   const drawnTile = pile.pop();
   drawnTile.isRevealed = false;
   room.turn.drawnTile = drawnTile;
-  room.turn.drawnTileId = null;
+  room.turn.drawnTileInsertIndex = null;
   room.turn.lastGuessCorrect = false;
   room.turnPhase =
     drawnTile.value === DASH ? TURN_PHASE.PLACE_DASH : TURN_PHASE.GUESS;
@@ -500,10 +500,7 @@ function placeDrawnDashForPlayer(room, player, insertIndex) {
     "insertIndex is outside the hand.",
   );
 
-  const dashTile = room.turn.drawnTile;
-  player.hand.splice(insertIndex, 0, dashTile);
-  room.turn.drawnTile = null;
-  room.turn.drawnTileId = dashTile.id;
+  room.turn.drawnTileInsertIndex = insertIndex;
   room.turnPhase = TURN_PHASE.GUESS;
   room.updatedAt = Date.now();
 }
@@ -555,27 +552,18 @@ function finishIfWon(room) {
 }
 
 function finalizeDrawnTile(room, player, { reveal }) {
-  let finalizedTile = null;
-
-  if (room.turn.drawnTile) {
-    finalizedTile = room.turn.drawnTile;
+  const finalizedTile = room.turn.drawnTile;
+  if (finalizedTile) {
     finalizedTile.isRevealed = reveal;
-    assertGame(
-      finalizedTile.value !== DASH,
-      "DASH_NOT_PLACED",
-      "A drawn Dash must be placed before it can be finalized.",
-    );
-    insertNumericTile(player.hand, finalizedTile);
-  } else if (room.turn.drawnTileId) {
-    finalizedTile =
-      player.hand.find((tile) => tile.id === room.turn.drawnTileId) || null;
-    assertGame(
-      finalizedTile,
-      "DRAWN_TILE_NOT_FOUND",
-      "The placed drawn tile could not be found.",
-    );
-    if (reveal) {
-      finalizedTile.isRevealed = true;
+    if (finalizedTile.value === DASH) {
+      assertGame(
+        Number.isInteger(room.turn.drawnTileInsertIndex),
+        "DASH_NOT_PLACED",
+        "A drawn Dash must be placed before it can be finalized.",
+      );
+      player.hand.splice(room.turn.drawnTileInsertIndex, 0, finalizedTile);
+    } else {
+      insertNumericTile(player.hand, finalizedTile);
     }
   }
 
@@ -629,7 +617,10 @@ function forfeitGameForPlayer(room, player) {
     const pendingTile = room.turn.drawnTile;
     pendingTile.isRevealed = true;
     if (pendingTile.value === DASH) {
-      player.hand.push(pendingTile);
+      const insertIndex = Number.isInteger(room.turn.drawnTileInsertIndex)
+        ? room.turn.drawnTileInsertIndex
+        : player.hand.length;
+      player.hand.splice(insertIndex, 0, pendingTile);
     } else {
       insertNumericTile(player.hand, pendingTile);
     }
@@ -762,7 +753,7 @@ function serializeTileForOwner(tile, room) {
     color: tile.color,
     value: tile.value,
     isRevealed: tile.isRevealed,
-    isDrawnThisTurn: room.turn.drawnTileId === tile.id,
+    isDrawnThisTurn: room.turn.drawnTile?.id === tile.id,
   };
 }
 
@@ -806,7 +797,19 @@ function serializePlayerForViewer(room, targetPlayer, viewerPlayer) {
   if (handHidden) {
     serialized.hand = null;
   } else if (isSelf) {
-    serialized.hand = targetPlayer.hand.map((tile) =>
+    const ownerHand = [...targetPlayer.hand];
+    const isPendingDashOwner =
+      currentPlayer(room)?.id === targetPlayer.id &&
+      room.turn.drawnTile?.value === DASH &&
+      Number.isInteger(room.turn.drawnTileInsertIndex);
+    if (isPendingDashOwner) {
+      ownerHand.splice(
+        room.turn.drawnTileInsertIndex,
+        0,
+        room.turn.drawnTile,
+      );
+    }
+    serialized.hand = ownerHand.map((tile) =>
       serializeTileForOwner(tile, room),
     );
   } else {
@@ -822,38 +825,31 @@ function serializeTurnDrawForViewer(room, viewerPlayer) {
     return null;
   }
 
-  let tile = room.turn.drawnTile;
-  let isPlaced = false;
-  if (!tile && room.turn.drawnTileId) {
-    tile = actor.hand.find((candidate) => candidate.id === room.turn.drawnTileId);
-    isPlaced = true;
-  }
+  const tile = room.turn.drawnTile;
   if (!tile) {
     return null;
   }
 
   if (actor.id === viewerPlayer.id) {
+    const isPlaced = Number.isInteger(room.turn.drawnTileInsertIndex);
+    if (isPlaced) {
+      return null;
+    }
     return {
       ...serializeTileForOwner(tile, room),
-      isPlaced,
+      isPlaced: false,
     };
   }
 
-  // Never send the value or Dash identity of an opponent's face-down drawn tile.
-  // Once placed, the new opaque card is already visible in the actor's hand.
-  if (isPlaced) {
-    return null;
-  }
-  return {
-    color: tile.color,
-    isRevealed: tile.isRevealed,
-  };
+  // A pending draw is completely private until the actor's turn ends. This hides
+  // its value, color, Dash identity, insertion position, and temporary hand count.
+  return null;
 }
 
 function serializeRoomState(room) {
   const publicPhase =
     room.turnPhase === TURN_PHASE.PLACE_DASH
-      ? "WAITING_FOR_PLAYER"
+      ? TURN_PHASE.GUESS
       : room.turnPhase;
   return {
     roomCode: room.roomCode,
@@ -878,7 +874,7 @@ function serializeGameState(room, viewerPlayer) {
   const actor = currentPlayer(room);
   const viewerPhase =
     room.turnPhase === TURN_PHASE.PLACE_DASH && actor?.id !== viewerPlayer.id
-      ? "WAITING_FOR_PLAYER"
+      ? TURN_PHASE.GUESS
       : room.turnPhase;
   return {
     roomCode: room.roomCode,
