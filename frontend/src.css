@@ -107,7 +107,21 @@
   }
 
   .tile-revealed {
-    @apply ring-2 ring-amber-400 ring-offset-2 ring-offset-stone-950;
+    /* Public tiles are identified by the 【公开】 label only. */
+  }
+
+  .tile-latest-drawn {
+    /* Keep the marker inside the tile so it never overlaps the order symbol. */
+  }
+
+  .tile-latest-drawn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    border: 2px solid #fbbf24;
+    border-radius: inherit;
+    pointer-events: none;
   }
 
   .tile-relation {

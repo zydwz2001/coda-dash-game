@@ -692,13 +692,14 @@
     const colorClass = tile.color === "white" ? "tile-white" : "tile-black";
     const showValue = options.isSelf || tile.isRevealed;
     const actionable = options.actionable && !tile.isRevealed;
+    const isLatestDrawn = tile.isLatestDrawn || tile.isDrawnThisTurn;
     const value = tile.value === DASH ? "—" : tile.value;
     return `
       <button
         type="button"
-        class="tile ${colorClass} ${showValue ? "" : "tile-hidden"} ${actionable ? "tile-actionable" : ""} ${tile.isRevealed ? "tile-revealed" : ""} ${state.flashingTileIds.includes(tile.id) ? "tile-hit-flash" : ""} ${tile.isDrawnThisTurn ? "ring-2 ring-coral-500" : ""}"
+        class="tile ${colorClass} ${showValue ? "" : "tile-hidden"} ${actionable ? "tile-actionable" : ""} ${tile.isRevealed ? "tile-revealed" : ""} ${isLatestDrawn ? "tile-latest-drawn" : ""} ${state.flashingTileIds.includes(tile.id) ? "tile-hit-flash" : ""}"
         ${actionable ? `data-action="open-guess" data-player-id="${escapeHtml(options.playerId)}" data-tile-id="${escapeHtml(tile.id)}"` : "disabled"}
-        aria-label="${actionable ? "猜测这张暗牌" : showValue ? `牌面 ${value}` : "未揭开的牌"}"
+        aria-label="${actionable ? "猜测这张暗牌" : showValue ? `牌面 ${value}` : "未揭开的牌"}${isLatestDrawn ? "，最新摸到" : ""}"
       >
         <span class="relative z-10 text-[0.58rem] font-black tracking-widest opacity-45">${tile.color === "white" ? "白" : "黑"}</span>
         <span class="relative z-10 text-[1.7rem] font-black tracking-tighter ${showValue ? "" : "opacity-35"} sm:text-4xl">${showValue ? escapeHtml(value) : "?"}</span>

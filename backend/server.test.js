@@ -351,7 +351,14 @@ test("two-player Socket.IO flow preserves identity and hides face-down values", 
     .find((player) => player.id === created.playerId)
     .hand.find((tile) => tile.id === drawnDash.id);
   assert.equal(revealedDrawnDash.isRevealed, true);
+  assert.equal(revealedDrawnDash.isLatestDrawn, true);
   assert.equal(revealedDrawnDash.value, DASH);
+  assert.equal(
+    secondObserved.game.players
+      .find((player) => player.id === created.playerId)
+      .hand.filter((tile) => tile.isLatestDrawn).length,
+    1,
+  );
 
   const availableColor = room.drawPiles.black.length ? "black" : "white";
   assert.equal(
@@ -380,6 +387,87 @@ test("two-player Socket.IO flow preserves identity and hides face-down values", 
       (tile) => tile.id === secondDrawnTileId,
     ).isRevealed,
     false,
+  );
+  assert.equal(
+    ownPlayer(secondObserved.game).hand.find(
+      (tile) => tile.id === secondDrawnTileId,
+    ).isLatestDrawn,
+    true,
+  );
+  const hiddenLatestTileFromOpponent = firstObserved.game.players
+    .find((player) => player.id === joined.playerId)
+    .hand.find((tile) => tile.id === secondDrawnTileId);
+  assert.equal(hiddenLatestTileFromOpponent.isLatestDrawn, true);
+  assert.equal(hiddenLatestTileFromOpponent.isRevealed, false);
+  assert.equal(Object.hasOwn(hiddenLatestTileFromOpponent, "value"), false);
+  assert.equal(
+    secondObserved.game.players
+      .find((player) => player.id === created.playerId)
+      .hand.find((tile) => tile.id === drawnDash.id).isLatestDrawn,
+    true,
+  );
+
+  let nextNumericTile = null;
+  let nextNumericColor = null;
+  for (const color of ["black", "white"]) {
+    const numericIndex = room.drawPiles[color].findIndex(
+      (tile) => tile.value !== DASH,
+    );
+    if (numericIndex !== -1) {
+      nextNumericTile = room.drawPiles[color].splice(numericIndex, 1)[0];
+      room.drawPiles[color].push(nextNumericTile);
+      nextNumericColor = color;
+      break;
+    }
+  }
+  assert(nextNumericTile);
+  assert.equal(
+    (await emitAck(replacementSocket, "draw_tile", { color: nextNumericColor }))
+      .ok,
+    true,
+  );
+  const secondPlayer = room.players.find(
+    (player) => player.id === joined.playerId,
+  );
+  const secondHiddenTile = secondPlayer.hand.find((tile) => !tile.isRevealed);
+  const nextWrongValue =
+    secondHiddenTile.value === DASH || secondHiddenTile.value === 0 ? 1 : 0;
+  assert.equal(
+    (
+      await emitAck(replacementSocket, "guess_tile", {
+        targetPlayerId: joined.playerId,
+        tileId: secondHiddenTile.id,
+        value: nextWrongValue,
+      })
+    ).correct,
+    false,
+  );
+  await waitFor(
+    () =>
+      secondObserved.game?.players
+        .find((player) => player.id === created.playerId)
+        ?.hand.some(
+          (tile) =>
+            tile.id === nextNumericTile.id && tile.isLatestDrawn === true,
+        ),
+    "The latest-draw marker did not move to the next finalized tile.",
+  );
+  const firstPlayerAfterNextDraw = secondObserved.game.players.find(
+    (player) => player.id === created.playerId,
+  );
+  assert.equal(
+    firstPlayerAfterNextDraw.hand.find((tile) => tile.id === drawnDash.id)
+      .isLatestDrawn,
+    false,
+  );
+  assert.equal(
+    firstPlayerAfterNextDraw.hand.find((tile) => tile.id === nextNumericTile.id)
+      .isLatestDrawn,
+    true,
+  );
+  assert.equal(
+    firstPlayerAfterNextDraw.hand.filter((tile) => tile.isLatestDrawn).length,
+    1,
   );
 
   const intruderSocket = await connectClient(url);

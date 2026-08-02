@@ -197,6 +197,7 @@ function createPlayer({ nickname, avatarId, playerToken, socketId, isHost }) {
     needsDashSetup: false,
     hasSetupDash: true,
     hand: [],
+    latestDrawnTileId: null,
   };
 }
 
@@ -298,6 +299,7 @@ function startGameForRoom(
 
   for (const player of room.players) {
     player.hand = [];
+    player.latestDrawnTileId = null;
     player.isEliminated = false;
     player.needsDashSetup = false;
     player.hasSetupDash = false;
@@ -421,6 +423,7 @@ function resetRoomForRematch(room) {
     player.needsDashSetup = false;
     player.hasSetupDash = true;
     player.hand = [];
+    player.latestDrawnTileId = null;
   }
   room.status = ROOM_STATUS.LOBBY;
   room.drawPiles = { black: [], white: [] };
@@ -565,6 +568,7 @@ function finalizeDrawnTile(room, player, { reveal }) {
     } else {
       insertNumericTile(player.hand, finalizedTile);
     }
+    player.latestDrawnTileId = finalizedTile.id;
   }
 
   resetTurn(room);
@@ -624,6 +628,7 @@ function forfeitGameForPlayer(room, player) {
     } else {
       insertNumericTile(player.hand, pendingTile);
     }
+    player.latestDrawnTileId = pendingTile.id;
   }
 
   if (wasCurrentPlayer) {
@@ -747,21 +752,23 @@ function endTurnForPlayer(room, player) {
   advanceTurn(room);
 }
 
-function serializeTileForOwner(tile, room) {
+function serializeTileForOwner(tile, room, ownerPlayer) {
   return {
     id: tile.id,
     color: tile.color,
     value: tile.value,
     isRevealed: tile.isRevealed,
     isDrawnThisTurn: room.turn.drawnTile?.id === tile.id,
+    isLatestDrawn: ownerPlayer.latestDrawnTileId === tile.id,
   };
 }
 
-function serializeTileForOpponent(tile) {
+function serializeTileForOpponent(tile, ownerPlayer) {
   const publicTile = {
     id: tile.id,
     color: tile.color,
     isRevealed: tile.isRevealed,
+    isLatestDrawn: ownerPlayer.latestDrawnTileId === tile.id,
   };
   if (tile.isRevealed) {
     publicTile.value = tile.value;
@@ -810,10 +817,12 @@ function serializePlayerForViewer(room, targetPlayer, viewerPlayer) {
       );
     }
     serialized.hand = ownerHand.map((tile) =>
-      serializeTileForOwner(tile, room),
+      serializeTileForOwner(tile, room, targetPlayer),
     );
   } else {
-    serialized.hand = targetPlayer.hand.map(serializeTileForOpponent);
+    serialized.hand = targetPlayer.hand.map((tile) =>
+      serializeTileForOpponent(tile, targetPlayer),
+    );
   }
 
   return serialized;
@@ -836,7 +845,7 @@ function serializeTurnDrawForViewer(room, viewerPlayer) {
       return null;
     }
     return {
-      ...serializeTileForOwner(tile, room),
+      ...serializeTileForOwner(tile, room, actor),
       isPlaced: false,
     };
   }

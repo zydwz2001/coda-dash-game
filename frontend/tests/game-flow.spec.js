@@ -140,6 +140,14 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
   await expect(firstPage.locator(".tile-revealed").first()).toContainText(
     "【公开】",
   );
+  const publicLatestTile = firstPage.locator(
+    ".tile-revealed.tile-latest-drawn",
+  );
+  await expect(publicLatestTile).toHaveCount(1);
+  mkdirSync("artifacts", { recursive: true });
+  await secondPage.locator(".opponent-zone").screenshot({
+    path: "artifacts/coda-latest-draw-opponent.png",
+  });
   await expect(secondPage.getByText("轮到你的回合", { exact: true })).toBeVisible();
   await expect(secondPage.getByText("上一回合：Ada 已结束")).toBeVisible();
   await expect(
@@ -231,6 +239,11 @@ test("two browser identities can arrange Dash, play, and refresh-rejoin", async 
     await expect(
       firstPage.getByRole("heading", { name: "被猜中了！" }),
     ).toBeHidden({ timeout: 2_000 });
+    if (value === "0") {
+      await firstPage.locator(".self-hand-panel").screenshot({
+        path: "artifacts/coda-public-vs-latest.png",
+      });
+    }
     if (value !== "4") {
       await expect(
         secondPage.getByRole("button", { name: "跳过回合" }),
