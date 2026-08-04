@@ -9,6 +9,7 @@
     backendUrl: "coda.backendUrl",
   };
   const DASH = "-";
+  const COLD_START_TIMEOUT_MS = 120_000;
   const PUBLIC_BACKEND_URL =
     "https://coda-game-288921-10-1460353596.sh.run.tcloudbase.com";
   const RETIRED_BACKEND_URLS = new Set([
@@ -97,6 +98,7 @@
     socket: null,
     connected: false,
     connecting: false,
+    entryAction: "",
     backendUrl: normalizeBackendUrl(initialBackendUrl),
     playerToken: initialPlayerToken,
     playerId: null,
@@ -122,6 +124,11 @@
       timestamp: 0,
     },
   };
+  let connectionPromise = null;
+  let resolveConnection = null;
+  let connectionTimeout = null;
+  let intentionalDisconnect = false;
+  let rejoinInFlight = false;
 
   storage.set(STORAGE_KEYS.backendUrl, state.backendUrl);
 
@@ -301,22 +308,43 @@
     return response;
   }
 
-  function connect() {
-    if (!window.io) {
-      showToast("游戏连接资源加载失败。", "error");
-      return;
-    }
+  function settleConnection(success) {
+    window.clearTimeout(connectionTimeout);
+    connectionTimeout = null;
+    const resolve = resolveConnection;
+    resolveConnection = null;
+    connectionPromise = null;
+    resolve?.(success);
+  }
+
+  function disposeSocket() {
+    intentionalDisconnect = true;
+    settleConnection(false);
     if (state.socket) {
       state.socket.removeAllListeners();
       state.socket.disconnect();
+      state.socket = null;
     }
-
-    state.connecting = true;
     state.connected = false;
-    render();
+    state.connecting = false;
+  }
+
+  function disconnectWhenIdle() {
+    if (state.roomCode || state.roomState || state.gameState) return;
+    disposeSocket();
+  }
+
+  function setupSocket() {
+    if (!window.io) {
+      return false;
+    }
+    if (state.socket) {
+      return true;
+    }
 
     // extraHeaders is required by Localtunnel to bypass its reminder page.
     state.socket = window.io(state.backendUrl, {
+      autoConnect: false,
       extraHeaders: {
         "Bypass-Tunnel-Reminder": "true",
       },
@@ -330,9 +358,12 @@
     state.socket.on("connect", async () => {
       state.connected = true;
       state.connecting = false;
+      intentionalDisconnect = false;
+      settleConnection(true);
       render();
 
-      if (state.roomCode) {
+      if (state.roomCode && !rejoinInFlight) {
+        rejoinInFlight = true;
         const response = await runAction(
           "rejoin_room",
           {
@@ -348,21 +379,25 @@
           showToast("已恢复原房间和座位。", "success");
         } else {
           forgetRoom();
-          render();
           showToast("原房间已失效，请重新创建或加入。", "error");
+          disconnectWhenIdle();
         }
+        rejoinInFlight = false;
+        render();
       }
     });
 
     state.socket.on("disconnect", () => {
       state.connected = false;
-      state.connecting = false;
+      state.connecting = Boolean(
+        !intentionalDisconnect && (state.roomCode || state.entryAction),
+      );
       render();
     });
 
     state.socket.on("connect_error", () => {
       state.connected = false;
-      state.connecting = false;
+      state.connecting = Boolean(state.roomCode || state.entryAction);
       render();
     });
 
@@ -444,9 +479,35 @@
 
     state.socket.on("kicked_from_room", (payload) => {
       forgetRoom();
+      disconnectWhenIdle();
       render();
       showToast(payload?.message || "你已被房主移出房间。", "error");
     });
+    return true;
+  }
+
+  function connect() {
+    if (state.socket?.connected) {
+      return Promise.resolve(true);
+    }
+    if (!setupSocket()) {
+      showToast("游戏连接资源加载失败。", "error");
+      return Promise.resolve(false);
+    }
+    intentionalDisconnect = false;
+    state.connecting = true;
+    render();
+    if (!connectionPromise) {
+      connectionPromise = new Promise((resolve) => {
+        resolveConnection = resolve;
+      });
+      connectionTimeout = window.setTimeout(() => {
+        disposeSocket();
+        render();
+      }, COLD_START_TIMEOUT_MS);
+    }
+    state.socket.connect();
+    return connectionPromise;
   }
 
   function renderShell(content) {
@@ -498,6 +559,19 @@
 
   function renderLobby() {
     const roomPrefill = state.joinCode || query.get("room") || "";
+    const entryBusy = Boolean(state.entryAction);
+    const createLabel =
+      state.entryAction === "create"
+        ? state.connected
+          ? "正在创建…"
+          : "服务器启动中…"
+        : "创建新房间";
+    const joinLabel =
+      state.entryAction === "join"
+        ? state.connected
+          ? "正在加入…"
+          : "服务器启动中…"
+        : "加入";
     return `
       <div class="grid flex-1 content-center gap-5 py-3 sm:items-center sm:gap-7 sm:py-7 lg:grid-cols-[1.08fr_0.92fr] lg:gap-14">
         <section class="relative mx-auto min-h-36 w-full max-w-3xl lg:mx-0 lg:min-h-0">
@@ -559,8 +633,8 @@
           ${renderAvatarPicker()}
 
           <form data-form="create-room" class="mt-4 sm:mt-5">
-            <button class="btn-primary w-full" ${state.connected ? "" : "disabled"}>
-              <span>创建新房间</span>
+            <button class="btn-primary w-full" ${entryBusy ? "disabled" : ""}>
+              <span>${createLabel}</span>
               <span aria-hidden="true">→</span>
             </button>
           </form>
@@ -582,7 +656,7 @@
               value="${escapeHtml(roomPrefill)}"
               placeholder="请输入房间号"
             />
-            <button class="btn-secondary shrink-0 px-5 sm:px-6" ${state.connected ? "" : "disabled"}>加入</button>
+            <button class="btn-secondary shrink-0 px-5 sm:px-6" ${entryBusy ? "disabled" : ""}>${joinLabel}</button>
           </form>
 
         </section>
@@ -1116,7 +1190,7 @@
           <input id="backendUrl" name="backendUrl" class="input font-mono" value="${escapeHtml(state.backendUrl)}" required />
           <div class="mt-5 grid grid-cols-2 gap-3">
             <button type="button" data-action="close-settings" class="btn-secondary">取消</button>
-            <button class="btn-primary">保存并重连</button>
+            <button class="btn-primary">保存设置</button>
           </div>
         </form>
       </div>
@@ -1268,12 +1342,25 @@
   }
 
   async function createRoom() {
+    if (state.entryAction) return;
+    state.entryAction = "create";
+    render();
+    const connected = await connect();
+    if (!connected) {
+      state.entryAction = "";
+      render();
+      showToast("服务器启动超时，请再试一次。", "error");
+      return;
+    }
     const response = await runAction("create_room", {
       nickname: state.nickname,
       avatarId: state.avatarId,
       playerToken: state.playerToken,
     });
+    state.entryAction = "";
     if (!response) {
+      render();
+      disconnectWhenIdle();
       return;
     }
     state.playerId = response.playerId;
@@ -1284,13 +1371,26 @@
   }
 
   async function joinRoom(roomCode) {
+    if (state.entryAction) return;
+    state.entryAction = "join";
+    render();
+    const connected = await connect();
+    if (!connected) {
+      state.entryAction = "";
+      render();
+      showToast("服务器启动超时，请再试一次。", "error");
+      return;
+    }
     const response = await runAction("join_room", {
       roomCode,
       nickname: state.nickname,
       avatarId: state.avatarId,
       playerToken: state.playerToken,
     });
+    state.entryAction = "";
     if (!response) {
+      render();
+      disconnectWhenIdle();
       return;
     }
     state.playerId = response.playerId;
@@ -1342,8 +1442,11 @@
       state.backendUrl = backendUrl;
       storage.set(STORAGE_KEYS.backendUrl, backendUrl);
       state.showSettings = false;
+      disposeSocket();
       render();
-      connect();
+      if (state.roomCode) {
+        void connect();
+      }
     }
   });
 
@@ -1377,6 +1480,7 @@
       const response = await runAction("leave_room");
       if (response) {
         forgetRoom();
+        disconnectWhenIdle();
         render();
         showToast("已退出房间。", "success");
       }
@@ -1400,6 +1504,7 @@
       const response = await runAction("leave_game");
       if (response) {
         forgetRoom();
+        disconnectWhenIdle();
         render();
         showToast("已退出游戏。", "success");
       }
@@ -1529,6 +1634,7 @@
       const response = await runAction("return_to_home");
       if (response) {
         forgetRoom();
+        disconnectWhenIdle();
         render();
       }
     }
@@ -1536,5 +1642,7 @@
 
   window.setInterval(updateSetupCountdown, 250);
   render();
-  connect();
+  if (state.roomCode) {
+    void connect();
+  }
 })();

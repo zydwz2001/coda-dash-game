@@ -3,6 +3,40 @@
 const { mkdirSync } = require("node:fs");
 const { test, expect } = require("@playwright/test");
 
+test("homepage connects only after entry and disconnects after leaving", async ({
+  page,
+}) => {
+  const backendUrl = "http://127.0.0.1:3100";
+  const backendQuery = encodeURIComponent(backendUrl);
+  let backendRequests = 0;
+  let socketCount = 0;
+  let socketClosed = false;
+
+  page.on("request", (request) => {
+    if (request.url().startsWith(backendUrl)) backendRequests += 1;
+  });
+  page.on("websocket", (socket) => {
+    socketCount += 1;
+    socket.on("close", () => {
+      socketClosed = true;
+    });
+  });
+
+  await page.goto(`/?server=${backendQuery}`);
+  await expect(page.getByRole("button", { name: "创建新房间" })).toBeEnabled();
+  await page.waitForTimeout(300);
+  expect(backendRequests).toBe(0);
+  expect(socketCount).toBe(0);
+
+  await page.getByRole("button", { name: "创建新房间" }).click();
+  await expect(page).toHaveURL(/room=\d{4}/);
+  expect(socketCount).toBeGreaterThan(0);
+
+  await page.getByRole("button", { name: "退出房间" }).click();
+  await expect(page.getByRole("button", { name: "创建新房间" })).toBeEnabled();
+  await expect.poll(() => socketClosed).toBe(true);
+});
+
 test("two browser identities can arrange Dash, play, and refresh-rejoin", async ({
   browser,
 }) => {
