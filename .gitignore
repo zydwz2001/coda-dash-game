@@ -3,5 +3,9 @@ frontend/node_modules/
 frontend/artifacts/
 frontend/test-results/
 frontend/playwright-report/
+.DS_Store
+.env
+.env.*
+/头像/
 prd.docx
 原型图.json
